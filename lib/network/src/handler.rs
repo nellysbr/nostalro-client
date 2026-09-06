@@ -2107,6 +2107,7 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
                 is_identified: i.is_identified,
                 count: i.count,
                 wear_state: i.wear_state,
+                slot: [0; 4],
             })
             .collect();
         return vec![GameEvent::InventoryNormalItems { items }];
@@ -2182,6 +2183,7 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
                 is_identified: i.is_identified,
                 count: i.count,
                 wear_state: i.wear_state,
+                slot: [i.slot.card1, i.slot.card2, i.slot.card3, i.slot.card4],
             })
             .collect();
         return vec![GameEvent::InventoryNormalItems { items }];
@@ -2197,6 +2199,7 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
                 is_identified: i.is_identified,
                 count: i.count,
                 wear_state: i.wear_state,
+                slot: [i.slot.card1, i.slot.card2, i.slot.card3, i.slot.card4],
             })
             .collect();
         return vec![GameEvent::InventoryNormalItems { items }];
@@ -2314,6 +2317,25 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
                     is_identified: i.is_identified,
                     count: i.count,
                     wear_state: i.wear_state,
+                    slot: [0; 4],
+                })
+                .collect();
+            return vec![GameEvent::CartNormalItems { items }];
+        }};
+    }
+    macro_rules! cart_normal_items_slotted {
+        ($p:expr) => {{
+            let items = $p
+                .item_info
+                .iter()
+                .map(|i| NormalItemData {
+                    index: i.index,
+                    item_id: i.itid,
+                    item_type: i.atype,
+                    is_identified: i.is_identified,
+                    count: i.count,
+                    wear_state: i.wear_state,
+                    slot: [i.slot.card1, i.slot.card2, i.slot.card3, i.slot.card4],
                 })
                 .collect();
             return vec![GameEvent::CartNormalItems { items }];
@@ -2343,10 +2365,10 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
         cart_normal_items!(p);
     }
     if let Some(p) = any.downcast_ref::<PacketZcCartNormalItemlist2>() {
-        cart_normal_items!(p);
+        cart_normal_items_slotted!(p);
     }
     if let Some(p) = any.downcast_ref::<PacketZcCartNormalItemlist3>() {
-        cart_normal_items!(p);
+        cart_normal_items_slotted!(p);
     }
     if let Some(p) = any.downcast_ref::<PacketZcCartEquipmentItemlist>() {
         cart_equip_items!(p);
@@ -2410,6 +2432,7 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
                 is_identified: i.is_identified,
                 count: i.count,
                 wear_state: i.wear_state,
+                slot: [i.slot.card1, i.slot.card2, i.slot.card3, i.slot.card4],
             })
             .collect();
         return vec![GameEvent::StorageNormalItems { items }];
@@ -2427,6 +2450,27 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
                         is_identified: i.is_identified,
                         count: i.count,
                         wear_state: i.wear_state,
+                        slot: [0; 4],
+                    })
+                    .collect();
+                return vec![GameEvent::StorageNormalItems { items }];
+            }
+        };
+    }
+    macro_rules! store_normal_items_slotted {
+        ($t:ty) => {
+            if let Some(p) = any.downcast_ref::<$t>() {
+                let items = p
+                    .item_info
+                    .iter()
+                    .map(|i| NormalItemData {
+                        index: i.index,
+                        item_id: i.itid,
+                        item_type: i.atype,
+                        is_identified: i.is_identified,
+                        count: i.count,
+                        wear_state: i.wear_state,
+                        slot: [i.slot.card1, i.slot.card2, i.slot.card3, i.slot.card4],
                     })
                     .collect();
                 return vec![GameEvent::StorageNormalItems { items }];
@@ -2434,7 +2478,7 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
         };
     }
     store_normal_items!(PacketZcStoreNormalItemlist);
-    store_normal_items!(PacketZcStoreNormalItemlist2);
+    store_normal_items_slotted!(PacketZcStoreNormalItemlist2);
     if let Some(p) = any.downcast_ref::<PacketZcStoreEquipmentItemlist3>() {
         let items = p
             .item_info

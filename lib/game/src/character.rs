@@ -526,6 +526,7 @@ mod tests {
                 is_identified: true,
                 count: 20,
                 wear_state: 0,
+                slot: [0; 4],
             }],
             &data,
         );

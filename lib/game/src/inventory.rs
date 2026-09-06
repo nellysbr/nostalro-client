@@ -339,7 +339,7 @@ pub fn normal_item_to_item(
         is_identified: info.is_identified,
         is_damaged: false,
         refining_level: 0,
-        slot: [0; 4],
+        slot: info.slot,
         location: info.wear_state,
         wear_state: 0,
         name,
@@ -628,6 +628,7 @@ pub struct NormalItemData {
     pub is_identified: bool,
     pub count: i16,
     pub wear_state: u16,
+    pub slot: [u16; 4],
 }
 
 #[derive(Debug, Clone)]
@@ -785,6 +786,7 @@ mod tests {
             is_identified: true,
             count: 30,
             wear_state: 0,
+            slot: [0; 4],
         }];
         let weapons = vec![EquipmentItemData {
             index: 2,
@@ -977,6 +979,7 @@ mod tests {
                 is_identified: true,
                 count: 10,
                 wear_state: 0,
+                slot: [0; 4],
             }],
             &data,
         );
@@ -1088,6 +1091,44 @@ mod tests {
                 &crate::char_name::CharNameCache::default(),
             ),
             "Knife [4]"
+        );
+    }
+
+    #[test]
+    fn created_item_from_the_inventory_list_keeps_its_maker() {
+        use crate::data_table::item_name_table::ItemNameTable;
+        use crate::item::CARD0_CREATE;
+        use std::collections::HashMap;
+
+        let names = HashMap::from([(504u16, "White Potion".to_string())]);
+        let mut data_table = crate::data_table::DataTable::new();
+        data_table.item_name = Some(ItemNameTable::from_entries(names.clone(), names));
+
+        let mut producers = crate::char_name::CharNameCache::default();
+        producers.insert(0x0004_0002, "Bob".to_string());
+
+        let mut inv = InventoryData::new();
+        inv.apply_normal_items(
+            vec![NormalItemData {
+                index: 7,
+                item_id: 504,
+                item_type: 0,
+                is_identified: true,
+                count: 3,
+                wear_state: 0,
+                slot: [CARD0_CREATE, 0, 2, 4],
+            }],
+            &data_table,
+        );
+
+        assert_eq!(
+            crate::display_name::format_equipment_display_name(
+                inv.get_item(7).unwrap(),
+                data_table.item_slot_count.as_ref(),
+                data_table.card_name.as_ref(),
+                &producers,
+            ),
+            "Bob's White Potion"
         );
     }
 }
