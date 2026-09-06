@@ -19,7 +19,17 @@ use crate::effect::queue::{BlendBucket, DrawRecord, PipelineKind, view_z};
 use crate::effect::{EffectDrawList, EffectPrimitiveDraw};
 use crate::sprite::SpriteVertex;
 
+/// Which alpha curve the quads are drawn through. `Shaped` is the shared
+/// `pow(tex.a, 2.2)`; `GammaSpace` uses `1 - pow(1 - tex.a, 2.2)`, which makes a
+/// near-black quad blended in linear space land where a gamma-space blend does.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AlphaCurve {
+    Shaped,
+    GammaSpace,
+}
+
 pub struct WorldQuadRenderer {
+    pub curve: AlphaCurve,
     pub pipeline_alpha: wgpu::RenderPipeline,
     pub pipeline_additive: wgpu::RenderPipeline,
     pub pipeline_alpha_no_depth: wgpu::RenderPipeline,
@@ -33,12 +43,47 @@ impl WorldQuadRenderer {
         camera_bind_group_layout: &wgpu::BindGroupLayout,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
+        Self::with_curve(
+            device,
+            surface_format,
+            camera_bind_group_layout,
+            texture_bind_group_layout,
+            AlphaCurve::Shaped,
+        )
+    }
+
+    pub fn gamma_space(
+        device: &wgpu::Device,
+        surface_format: wgpu::TextureFormat,
+        camera_bind_group_layout: &wgpu::BindGroupLayout,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> Self {
+        Self::with_curve(
+            device,
+            surface_format,
+            camera_bind_group_layout,
+            texture_bind_group_layout,
+            AlphaCurve::GammaSpace,
+        )
+    }
+
+    fn with_curve(
+        device: &wgpu::Device,
+        surface_format: wgpu::TextureFormat,
+        camera_bind_group_layout: &wgpu::BindGroupLayout,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
+        curve: AlphaCurve,
+    ) -> Self {
+        let source = match curve {
+            AlphaCurve::Shaped => include_str!("../../shaders/effect_ground_disc.wgsl"),
+            AlphaCurve::GammaSpace => include_str!("../../shaders/effect_world_quad_gamma.wgsl"),
+        };
         let (pipeline_alpha, pipeline_additive) = Self::build_pipelines(
             device,
             surface_format,
             camera_bind_group_layout,
             texture_bind_group_layout,
-            include_str!("../../shaders/effect_ground_disc.wgsl"),
+            source,
             wgpu::CompareFunction::LessEqual,
         );
         let (pipeline_alpha_no_depth, pipeline_additive_no_depth) = Self::build_pipelines(
@@ -46,10 +91,11 @@ impl WorldQuadRenderer {
             surface_format,
             camera_bind_group_layout,
             texture_bind_group_layout,
-            include_str!("../../shaders/effect_ground_disc.wgsl"),
+            source,
             wgpu::CompareFunction::Always,
         );
         Self {
+            curve,
             pipeline_alpha,
             pipeline_additive,
             pipeline_alpha_no_depth,
@@ -101,11 +147,19 @@ impl WorldQuadRenderer {
     }
 }
 
+fn curve_of(blend: crate::effect::BlendKind) -> AlphaCurve {
+    match blend {
+        crate::effect::BlendKind::AlphaGamma => AlphaCurve::GammaSpace,
+        _ => AlphaCurve::Shaped,
+    }
+}
+
 pub fn prepare_world_quad_records<'tex>(
     list: &EffectDrawList,
     camera: &Camera,
     fallback_texture: &'tex wgpu::BindGroup,
     texture_lookup: impl Fn(&str) -> Option<&'tex wgpu::BindGroup>,
+    curve: AlphaCurve,
 ) -> Vec<DrawRecord<'tex>> {
     let mut records: Vec<DrawRecord<'tex>> = Vec::new();
     for (emission, prim) in list.primitives.iter().enumerate() {
@@ -128,6 +182,9 @@ pub fn prepare_world_quad_records<'tex>(
             } => (corners, uv, texture_key.as_str(), color, blend, no_depth),
             _ => continue,
         };
+        if curve_of(*blend) != curve {
+            continue;
+        }
 
         let texture_bg = texture_lookup(texture).unwrap_or(fallback_texture);
 
@@ -157,7 +214,10 @@ pub fn prepare_world_quad_records<'tex>(
             view_z(camera, centroid),
             emission as u32,
             bucket,
-            PipelineKind::WorldQuad,
+            match curve {
+                AlphaCurve::Shaped => PipelineKind::WorldQuad,
+                AlphaCurve::GammaSpace => PipelineKind::WorldQuadGamma,
+            },
             vertices,
             indices,
             texture_bg,

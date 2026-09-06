@@ -24,7 +24,6 @@ const SLASH_FADE_FRAMES: f32 = 15.0;
 #[derive(Clone, Copy, PartialEq)]
 pub enum OverlayShape {
     WorldVignette,
-    CircleVignette,
     Wash,
 }
 
@@ -49,30 +48,25 @@ impl FullscreenOverlayParams {
 }
 
 pub const BLIND: FullscreenOverlayParams = FullscreenOverlayParams {
-    texture: "white02.bmp",
+    texture: "fullb.tga",
     tint: [10.0 / 255.0, 10.0 / 255.0, 10.0 / 255.0],
-    blend: BlendKind::Alpha,
-    shape: OverlayShape::CircleVignette,
+    blend: BlendKind::AlphaGamma,
+    shape: OverlayShape::WorldVignette,
     ramp_per_frame: 1.0 / 255.0,
     max_alpha: 1.0,
     pulse: false,
     slashes: false,
-    distance: 18.0,
+    distance: 50.0,
     duration_ms: PERSISTENT_DURATION_MS,
 };
 
-pub const DEVIL: FullscreenOverlayParams = FullscreenOverlayParams {
-    texture: "white02.bmp",
-    tint: [30.0 / 255.0, 30.0 / 255.0, 30.0 / 255.0],
-    blend: BlendKind::Alpha,
-    shape: OverlayShape::CircleVignette,
-    ramp_per_frame: 1.0 / 255.0,
-    max_alpha: 1.0,
-    pulse: false,
-    slashes: false,
-    distance: 18.0,
-    duration_ms: PERSISTENT_DURATION_MS,
-};
+pub const fn devil(level: u8) -> FullscreenOverlayParams {
+    FullscreenOverlayParams {
+        tint: [30.0 / 255.0, 30.0 / 255.0, 30.0 / 255.0],
+        distance: 140.0 - 10.0 * level as f32,
+        ..BLIND
+    }
+}
 
 pub const DEVIL_RED: FullscreenOverlayParams = FullscreenOverlayParams {
     texture: "fullb.tga",
@@ -130,16 +124,20 @@ const SLASH_TINT: [f32; 3] = [1.0, 0.15, 0.15];
 
 pub struct FullscreenOverlayEffect {
     params: FullscreenOverlayParams,
+    center: [f32; 3],
     age_frames: f32,
     process: f32,
     alpha: f32,
     total_frames: f32,
 }
 
+const CENTER_LIFT: f32 = 9.0;
+
 impl FullscreenOverlayEffect {
-    pub fn new(_world_pos: [f32; 3], params: FullscreenOverlayParams) -> Self {
+    pub fn new(world_pos: [f32; 3], params: FullscreenOverlayParams) -> Self {
         Self {
             params,
+            center: lifted(world_pos),
             age_frames: 0.0,
             process: 0.0,
             alpha: 0.0,
@@ -171,6 +169,10 @@ impl FullscreenOverlayEffect {
 }
 
 const FILL_REACH_FACTOR: f32 = 4.0;
+
+fn lifted(pos: [f32; 3]) -> [f32; 3] {
+    [pos[0], pos[1] - CENTER_LIFT, pos[2]]
+}
 
 fn sub(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
@@ -259,60 +261,6 @@ fn push_world_vignette(
     band(out, -f, -d, -d, d);
 }
 
-const CIRCLE_SEGMENTS: usize = 96;
-// Clear/dark radii in world units, so the hole covers a fixed number of cells and
-// shrinks on screen as the camera zooms out. CAMERA_HALF_FOV_Y mirrors the renderer's
-// fixed 15° vertical FOV (zoom is done by moving the eye, not changing FOV).
-const CIRCLE_CLEAR_WORLD: f32 = 4.7;
-const CIRCLE_DARK_WORLD: f32 = 11.0;
-const CAMERA_HALF_FOV_Y_DEG: f32 = 7.5;
-
-fn push_circle_vignette(
-    out: &mut EffectDrawList,
-    screen_w: f32,
-    screen_h: f32,
-    ndc_per_world: f32,
-    tint: [f32; 3],
-    alpha: f32,
-) {
-    let aspect = (screen_w / screen_h).max(1e-3);
-    let clear = [tint[0], tint[1], tint[2], 0.0];
-    let dark = [tint[0], tint[1], tint[2], alpha];
-    let ry_clear = CIRCLE_CLEAR_WORLD * ndc_per_world;
-    let ry_dark = CIRCLE_DARK_WORLD * ndc_per_world;
-
-    let circle = |ry: f32, ang: f32| [ry * ang.cos() / aspect, ry * ang.sin()];
-    let screen_edge = |ang: f32| {
-        let dx = ang.cos() / aspect;
-        let dy = ang.sin();
-        let t = 1.05 / dx.abs().max(dy.abs());
-        [dx * t, dy * t]
-    };
-
-    let mut vertices: Vec<([f32; 2], [f32; 4])> = Vec::with_capacity(CIRCLE_SEGMENTS * 3);
-    for i in 0..CIRCLE_SEGMENTS {
-        let ang = i as f32 / CIRCLE_SEGMENTS as f32 * std::f32::consts::TAU;
-        vertices.push((circle(ry_clear, ang), clear));
-        vertices.push((circle(ry_dark, ang), dark));
-        vertices.push((screen_edge(ang), dark));
-    }
-
-    let mut indices: Vec<u32> = Vec::with_capacity(CIRCLE_SEGMENTS * 12);
-    for i in 0..CIRCLE_SEGMENTS {
-        let a = (3 * i) as u32;
-        let b = (3 * ((i + 1) % CIRCLE_SEGMENTS)) as u32;
-        indices.extend_from_slice(&[a, a + 1, b + 1, a, b + 1, b]);
-        indices.extend_from_slice(&[a + 1, a + 2, b + 2, a + 1, b + 2, b + 1]);
-    }
-
-    out.push(EffectPrimitiveDraw::ScreenMesh {
-        texture: "white02.bmp",
-        blend: BlendKind::Alpha,
-        vertices,
-        indices,
-    });
-}
-
 fn slash_quad(
     i: usize,
     process: f32,
@@ -378,6 +326,10 @@ impl Effect for FullscreenOverlayEffect {
         }
     }
 
+    fn set_position(&mut self, pos: [f32; 3]) {
+        self.center = lifted(pos);
+    }
+
     fn collect_draws(&self, out: &mut EffectDrawList, ctx: &EffectRenderCtx) {
         if self.alpha > 0.0 {
             match self.params.shape {
@@ -389,29 +341,13 @@ impl Effect for FullscreenOverlayEffect {
                     };
                     push_world_vignette(
                         out,
-                        ctx.camera.target,
+                        self.center,
                         right,
                         up,
                         self.params.distance,
                         eye_dist * FILL_REACH_FACTOR,
                         self.body_color(),
                         self.params.blend,
-                    );
-                }
-                OverlayShape::CircleVignette => {
-                    let eye_dist = {
-                        let d = sub(ctx.camera.eye, ctx.camera.target);
-                        (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
-                    };
-                    let ndc_per_world =
-                        1.0 / (eye_dist.max(1.0) * CAMERA_HALF_FOV_Y_DEG.to_radians().tan());
-                    push_circle_vignette(
-                        out,
-                        ctx.screen_w,
-                        ctx.screen_h,
-                        ndc_per_world,
-                        self.params.tint,
-                        self.alpha,
                     );
                 }
                 OverlayShape::Wash => {
@@ -499,60 +435,63 @@ mod tests {
             .collect()
     }
 
-    fn screen_mesh(
-        e: &FullscreenOverlayEffect,
-        ctx: &EffectRenderCtx,
-    ) -> Vec<([f32; 2], [f32; 4])> {
+    fn world_quads(e: &FullscreenOverlayEffect) -> Vec<([[f32; 3]; 4], &'static str, BlendKind)> {
         let mut list = EffectDrawList::new();
-        e.collect_draws(&mut list, ctx);
+        e.collect_draws(&mut list, &render_ctx());
         list.primitives
             .iter()
-            .find_map(|p| match p {
-                EffectPrimitiveDraw::ScreenMesh { vertices, .. } => Some(vertices.clone()),
+            .filter_map(|p| match p {
+                EffectPrimitiveDraw::WorldQuad {
+                    corners,
+                    texture,
+                    no_depth,
+                    blend,
+                    ..
+                } => {
+                    assert!(*no_depth, "overlay quads ignore depth");
+                    Some((*corners, *texture, *blend))
+                }
                 _ => None,
             })
-            .unwrap_or_default()
-    }
-
-    fn clear_ring_radius(e: &FullscreenOverlayEffect, dist: f32) -> f32 {
-        let ctx = render_ctx_at(dist);
-        let verts = screen_mesh(e, &ctx);
-        let aspect = ctx.screen_w / ctx.screen_h;
-        let radii: Vec<f32> = verts
-            .iter()
-            .filter(|(_, c)| c[3] == 0.0)
-            .map(|([x, y], _)| ((x * aspect).powi(2) + y.powi(2)).sqrt())
-            .collect();
-        assert!(!radii.is_empty(), "inner ring is fully transparent");
-        let min = radii.iter().cloned().fold(f32::MAX, f32::min);
-        let max = radii.iter().cloned().fold(0.0_f32, f32::max);
-        assert!(
-            (max - min).abs() < 1e-3,
-            "clear ring is a circle: {min}..{max}"
-        );
-        max
+            .collect()
     }
 
     #[test]
-    fn blind_and_devil_clear_hole_is_circular_and_shrinks_when_zooming_out() {
-        for params in [BLIND, DEVIL] {
-            let mut e = FullscreenOverlayEffect::new([0.0, 0.0, 0.0], params);
-            step_frames(&mut e, 200);
+    fn blind_darkens_from_a_square_gradient_that_follows_the_actor() {
+        let mut e = FullscreenOverlayEffect::new([0.0, 0.0, 0.0], BLIND);
+        step_frames(&mut e, 200);
+        e.set_position([100.0, 0.0, 40.0]);
 
-            let near = clear_ring_radius(&e, 100.0);
-            let far = clear_ring_radius(&e, 400.0);
-            assert!(near > 0.0);
+        let center = [100.0, -CENTER_LIFT, 40.0];
+        let quads = world_quads(&e);
+        let gradient: Vec<_> = quads
+            .iter()
+            .filter(|(_, tex, _)| *tex == "fullb.tga")
+            .collect();
+        assert_eq!(gradient.len(), 4, "one gradient quad per quadrant");
+        for (corners, _, blend) in &gradient {
+            assert_eq!(*blend, BlendKind::AlphaGamma);
+            assert_eq!(corners[0], center, "every quadrant starts on the actor");
+            let far = corners[2];
+            let reach = ((far[0] - center[0]).powi(2)
+                + (far[1] - center[1]).powi(2)
+                + (far[2] - center[2]).powi(2))
+            .sqrt();
+            let diagonal = BLIND.distance * 2.0_f32.sqrt();
             assert!(
-                far < near * 0.6,
-                "zooming out shrinks the clear circle: {near} -> {far}"
-            );
-
-            let verts = screen_mesh(&e, &render_ctx_at(100.0));
-            assert!(
-                verts.iter().any(|(_, c)| c[3] > 0.5),
-                "outer rings darken the screen"
+                (reach - diagonal).abs() < 1e-3,
+                "gradient reaches {} from the centre, want {diagonal}",
+                reach
             );
         }
+        assert!(
+            quads.iter().any(|(_, tex, _)| *tex == "white02.bmp"),
+            "flat fill bands wrap the gradient"
+        );
+
+        assert_eq!(devil(1).distance, 130.0);
+        assert_eq!(devil(10).distance, 40.0);
+        assert_eq!(devil(1).tint, [30.0 / 255.0; 3]);
     }
 
     #[test]

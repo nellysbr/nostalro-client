@@ -597,18 +597,45 @@ pub fn make_effect(
             anchor.point(),
             effects::fullscreen_overlay::BLIND,
         )),
-        EffectId::Devil1
-        | EffectId::Devil2
-        | EffectId::Devil3
-        | EffectId::Devil4
-        | EffectId::Devil5
-        | EffectId::Devil6
-        | EffectId::Devil7
-        | EffectId::Devil8
-        | EffectId::Devil9
-        | EffectId::Devil10 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+        EffectId::Devil1 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
             anchor.point(),
-            effects::fullscreen_overlay::DEVIL,
+            effects::fullscreen_overlay::devil(1),
+        )),
+        EffectId::Devil2 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(2),
+        )),
+        EffectId::Devil3 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(3),
+        )),
+        EffectId::Devil4 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(4),
+        )),
+        EffectId::Devil5 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(5),
+        )),
+        EffectId::Devil6 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(6),
+        )),
+        EffectId::Devil7 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(7),
+        )),
+        EffectId::Devil8 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(8),
+        )),
+        EffectId::Devil9 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(9),
+        )),
+        EffectId::Devil10 => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
+            anchor.point(),
+            effects::fullscreen_overlay::devil(10),
         )),
         EffectId::DevilRed => Box::new(effects::fullscreen_overlay::FullscreenOverlayEffect::new(
             anchor.point(),

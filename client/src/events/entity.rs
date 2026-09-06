@@ -17,8 +17,8 @@ use ragnarok_game::damage_number::{DamageNumber, DamageNumberType};
 use ragnarok_game::effect::{
     OPT3_BLADESTOP, StatusKind, StatusSound, UNT_USED_TRAPS, devil_blind_effect,
     is_attackable_skill_unit, monster_opt3_reaction, opt3_bit_for_icon, opt3_bits, persistent_aura,
-    player_opt3_reaction, skill_unit_effect, skill_unit_entry_sound, status_reaction,
-    status_reaction_by_efst, trap_model_name, trap_trigger_effect,
+    player_opt3_reaction, reaction_for_efst, skill_unit_effect, skill_unit_entry_sound,
+    status_reaction, status_reaction_by_efst, trap_model_name, trap_trigger_effect,
 };
 use ragnarok_game::entity::{ChatBubbleState, Entity, EntityState, EntityType};
 use ragnarok_game::entity_collection::GROUND_SKILL_EXEC_SECS;
@@ -743,13 +743,7 @@ impl App {
             player.movement.stop();
         }
         if is_player {
-            let was_blind = prev_health & ailment::OPT2_BLIND != 0;
-            let now_blind = health_state & ailment::OPT2_BLIND != 0;
-            if now_blind && !was_blind {
-                self.effect_queue.spawn_on_keyed(EffectId::Blind, gid, gid);
-            } else if was_blind && !now_blind {
-                self.effect_queue.despawn(gid);
-            }
+            self.refresh_blind_overlay();
         }
         let (mut old_cart, mut new_cart) = (None, None);
         let (mut old_falcon, mut new_falcon) = (false, false);
@@ -855,6 +849,30 @@ impl App {
         self.refresh_boss_aura(gid);
         self.refresh_detect_aura(gid);
         self.refresh_pk_rank_aura(gid);
+    }
+
+    pub(super) fn refresh_blind_overlay(&mut self) {
+        let want = self
+            .game
+            .world
+            .entities
+            .player()
+            .is_some_and(|p| p.health_state & ailment::OPT2_BLIND != 0);
+        match (want, self.game.effect_keys.blind_overlay_key) {
+            (true, None) => {
+                let Some(gid) = self.game.world.entities.player_id() else {
+                    return;
+                };
+                let key = self.next_entity_effect_key();
+                self.effect_queue.spawn_on_keyed(EffectId::Blind, gid, key);
+                self.game.effect_keys.blind_overlay_key = Some(key);
+            }
+            (false, Some(key)) => {
+                self.effect_queue.despawn(key);
+                self.game.effect_keys.blind_overlay_key = None;
+            }
+            _ => {}
+        }
     }
 
     pub(super) fn refresh_detect_aura(&mut self, gid: u32) {
@@ -1165,6 +1183,10 @@ impl App {
             .map(|s| (s.efst, s.end_ms))
             .collect();
         for (efst, end_ms) in statuses {
+            if reaction_for_efst(efst).is_some_and(|r| r.kind == StatusKind::DevilBlind) {
+                self.handle_devil_blind_status(gid, efst, true, None);
+                continue;
+            }
             let Some((aura, aura_count)) = persistent_aura(efst) else {
                 continue;
             };
@@ -1181,6 +1203,7 @@ impl App {
                 .status_buff_keys
                 .insert((gid, efst), key);
         }
+        self.refresh_blind_overlay();
     }
 
     /// Track a status on the local player and preload its bar icon. Statuses the

@@ -10,7 +10,7 @@ use crate::effect::primitives::{
 };
 use crate::effect::queue::{BlendBucket, DrawRecord, PipelineKind};
 
-pub const PRIMITIVE_KIND_COUNT: usize = 11;
+pub const PRIMITIVE_KIND_COUNT: usize = 12;
 
 pub type TextureLookup<'a, 'tex> = &'a dyn Fn(&str) -> Option<&'tex wgpu::BindGroup>;
 
@@ -208,7 +208,7 @@ impl EffectPrimitiveRenderer for WorldQuadRenderer {
         fallback: &'tex wgpu::BindGroup,
         lookup: TextureLookup<'_, 'tex>,
     ) -> Vec<DrawRecord<'tex>> {
-        prepare_world_quad_records(list, camera, fallback, lookup)
+        prepare_world_quad_records(list, camera, fallback, lookup, self.curve)
     }
 
     fn pipeline(&self, bucket: BlendBucket) -> &wgpu::RenderPipeline {
@@ -361,6 +361,9 @@ impl EffectPrimitiveRegistry {
             camera_bgl,
             texture_bgl,
         )));
+        slots[PipelineKind::WorldQuadGamma as usize] = Some(Box::new(
+            WorldQuadRenderer::gamma_space(device, surface_format, camera_bgl, texture_bgl),
+        ));
         slots[PipelineKind::Texture3D as usize] = Some(Box::new(Texture3DRenderer::new(
             device,
             surface_format,

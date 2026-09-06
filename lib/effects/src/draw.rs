@@ -18,6 +18,10 @@ pub enum FrustumWaveMode {
 pub enum BlendKind {
     /// `src.rgb * src.a + dst.rgb * (1 - src.a)`
     Alpha,
+    /// As [`BlendKind::Alpha`], but the texture alpha is pre-shaped so that
+    /// blending a near-black quad in linear space lands where the original
+    /// game's gamma-space blend does.
+    AlphaGamma,
     /// `src.rgb * src.a + dst.rgb`
     Additive,
     /// `src.rgb * dst.rgb`

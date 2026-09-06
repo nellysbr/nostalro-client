@@ -502,6 +502,7 @@ impl App {
             self.refresh_level_aura(gid);
             self.refresh_boss_aura(gid);
             self.refresh_detect_aura(gid);
+            self.refresh_pk_rank_aura(gid);
             self.refresh_warp_portal(gid);
         }
         self.refresh_player_status_buffs();

@@ -156,6 +156,7 @@ pub fn status_reaction(efst: ClientEffectIcon) -> Option<StatusReaction> {
         I::Magicpower => StatusReaction::aura(&[E::Lightblade]),
         I::Aurablade => StatusReaction::aura(&[E::Aurablade2]),
         I::Kaite => StatusReaction::aura(&[E::Reflectbody]),
+        I::Marionette | I::MarionetteMaster => StatusReaction::aura(&[E::Pinkbody]),
         I::Soullink => StatusReaction::aura(&[E::Asurabody]).with_night_filter(),
         I::Explosionspirits => StatusReaction::aura_with_count(
             &[E::Gumgang, E::Makeblur],
@@ -193,14 +194,18 @@ pub const EFST_SG_STAR_WARM: i16 = 167;
 /// reaction table. They outlive an effect-queue wipe, so a map change has to
 /// re-launch them from the statuses still running.
 pub fn persistent_aura(efst: i16) -> Option<(&'static [EffectId], Option<u8>)> {
-    status_reaction_by_efst(efst)
-        .or_else(|| {
-            ClientEffectIcon::try_from_value(efst as usize)
-                .ok()
-                .and_then(status_reaction)
-        })
+    reaction_for_efst(efst)
         .map(|reaction| (reaction.aura, reaction.aura_count))
         .filter(|(aura, _)| !aura.is_empty())
+}
+
+/// The reaction for a status, from whichever of the two tables addresses it.
+pub fn reaction_for_efst(efst: i16) -> Option<StatusReaction> {
+    status_reaction_by_efst(efst).or_else(|| {
+        ClientEffectIcon::try_from_value(efst as usize)
+            .ok()
+            .and_then(status_reaction)
+    })
 }
 
 pub fn status_reaction_by_efst(efst: i16) -> Option<StatusReaction> {
@@ -254,9 +259,22 @@ mod tests {
         assert!(devil_blind_effect(0).is_none());
         assert!(devil_blind_effect(DEVIL_BLIND_MAX_LEVEL + 1).is_none());
         assert_eq!(
-            status_reaction_by_efst(EFST_DEVIL1).unwrap().kind,
-            StatusKind::DevilBlind
+            reaction_for_efst(EFST_DEVIL1).unwrap().kind,
+            StatusKind::DevilBlind,
+            "the map-change replay resolves the eclipse overlay through this table"
         );
+    }
+
+    #[test]
+    fn marionette_wears_the_same_body_on_both_channels() {
+        use crate::opt3::{OPT3_MARIONETTE, player_opt3_reaction};
+        use ClientEffectIcon as I;
+
+        let from_opt3 = player_opt3_reaction(OPT3_MARIONETTE).unwrap().aura;
+        assert_eq!(from_opt3, &[EffectId::Pinkbody]);
+        for icon in [I::Marionette, I::MarionetteMaster] {
+            assert_eq!(status_reaction(icon).unwrap().aura, from_opt3);
+        }
     }
 
     #[test]
@@ -338,8 +356,6 @@ mod tests {
 
         // One-shot-at-cast buffs (icon persists, no world aura): no reaction here.
         for efst in [
-            I::Marionette,
-            I::MarionetteMaster,
             I::Autoguard,
             I::Reflectshield,
             I::Defender,

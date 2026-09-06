@@ -27,7 +27,7 @@ impl BlendBucket {
 
     pub fn from_blend_kind(blend: BlendKind) -> BlendBucket {
         match blend {
-            BlendKind::Alpha => BlendBucket::Alpha,
+            BlendKind::Alpha | BlendKind::AlphaGamma => BlendBucket::Alpha,
             BlendKind::Additive => BlendBucket::Additive,
             BlendKind::Multiply => BlendBucket::Multiply,
             BlendKind::Raw { src: _, dst } => {
@@ -56,6 +56,7 @@ pub enum PipelineKind {
     QuadHorn,
     Sphere,
     WorldQuad,
+    WorldQuadGamma,
     Texture3D,
     RadialRing,
     LineStrip,

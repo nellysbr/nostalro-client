@@ -147,6 +147,7 @@ pub struct EffectKeys {
     pub spirit_keys: HashMap<u32, u32>,
     pub sight_aura_keys: HashMap<u32, u32>,
     pub ruwach_aura_keys: HashMap<u32, u32>,
+    pub blind_overlay_key: Option<u32>,
     pub weather_keys: HashMap<EffectId, u32>,
 }
 
@@ -162,6 +163,7 @@ impl EffectKeys {
         self.spirit_keys.clear();
         self.sight_aura_keys.clear();
         self.ruwach_aura_keys.clear();
+        self.blind_overlay_key = None;
         self.weather_keys.clear();
     }
 }
@@ -1192,6 +1194,7 @@ mod effect_reset_tests {
         keys.spirit_keys.insert(1, 1);
         keys.sight_aura_keys.insert(1, 1);
         keys.ruwach_aura_keys.insert(1, 1);
+        keys.blind_overlay_key = Some(1);
         keys.weather_keys.insert(EffectId::Snow, 1);
 
         game.schedulers.map_cloud.set_map("gonryun");
@@ -1213,6 +1216,7 @@ mod effect_reset_tests {
         assert!(keys.spirit_keys.is_empty());
         assert!(keys.sight_aura_keys.is_empty());
         assert!(keys.ruwach_aura_keys.is_empty());
+        assert!(keys.blind_overlay_key.is_none());
         assert!(keys.weather_keys.is_empty());
 
         game.schedulers.map_cloud.update(Some(1), true, &mut queue);
