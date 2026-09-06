@@ -1721,6 +1721,16 @@ impl App {
                 } => {
                     self.handle_quest_npc_marker(npc_id, x, y, effect, color);
                 }
+                GameEvent::MinimapMark {
+                    id,
+                    action,
+                    x,
+                    y,
+                    color,
+                } => {
+                    let now = self.start_time.elapsed().as_secs_f32();
+                    self.game.minimap_marks.apply(id, action, x, y, color, now);
+                }
 
                 GameEvent::CoupleNameReceived { name } => {
                     self.game.character.partner_name = name;
@@ -3089,16 +3099,6 @@ impl App {
                 }
                 GameEvent::RequestUploadEmblem { path } => {
                     self.upload_emblem_file(&path);
-                }
-                GameEvent::MinimapMark {
-                    id,
-                    action,
-                    x,
-                    y,
-                    color,
-                } => {
-                    let now = self.start_time.elapsed().as_secs_f32();
-                    self.game.minimap_marks.apply(id, action, x, y, color, now);
                 }
                 GameEvent::RequestWorldMapTexture { path } => {
                     let loaded = match (&self.grf, &mut self.renderer) {
