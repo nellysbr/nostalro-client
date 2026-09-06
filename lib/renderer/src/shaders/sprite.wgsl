@@ -9,7 +9,7 @@ struct SpriteUniforms {
     fog_near: f32,
     fog_far: f32,
     fog_enabled: f32,
-    _pad3: f32,
+    sharpen: f32,
     clip_near: f32,
     clip_far: f32,
     _pad4: vec2<f32>,
@@ -64,9 +64,30 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
+fn sharp_tex_coord(uv: vec2<f32>) -> vec2<f32> {
+    let dims = vec2<f32>(textureDimensions(sprite_texture, 0));
+    let px = uv * dims;
+    let scale = max(
+        vec2<f32>(
+            1.0 / max(length(vec2<f32>(dpdx(px.x), dpdy(px.x))), 1e-4),
+            1.0 / max(length(vec2<f32>(dpdx(px.y), dpdy(px.y))), 1e-4),
+        ),
+        vec2<f32>(1.0),
+    );
+    let offset = fract(px) - 0.5;
+    let flat_region = 0.5 - 0.5 / scale;
+    let snapped = (offset - clamp(offset, -flat_region, flat_region)) * scale + 0.5;
+    return (floor(px) + snapped) / dims;
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let tex = textureSample(sprite_texture, sprite_sampler, in.tex_coord);
+    let tex_coord = select(
+        in.tex_coord,
+        sharp_tex_coord(in.tex_coord),
+        sprite.sharpen > 0.0,
+    );
+    let tex = textureSample(sprite_texture, sprite_sampler, tex_coord);
     if tex.a < 0.01 || in.color.a <= 0.0 {
         discard;
     }

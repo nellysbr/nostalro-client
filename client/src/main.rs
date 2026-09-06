@@ -307,8 +307,6 @@ impl App {
             };
             renderer.camera.on_map_enter(map_data.indoor, restore);
         }
-        self.refresh_sprite_upscale();
-
         self.game
             .schedulers
             .ambient_effects
@@ -732,6 +730,9 @@ impl ApplicationHandler for App {
         self.effect_sprites
             .set_filtering(self.config.custom.filtering.effects);
         ragnarok_renderer::sprite::set_filtering(self.config.custom.filtering.sprites);
+        renderer.set_sprite_upscale(
+            self.config.custom.filtering.sprite_upscale && self.config.custom.filtering.sprites,
+        );
 
         let physical_size = window.inner_size();
         self.window = Some(window);

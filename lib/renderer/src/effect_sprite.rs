@@ -106,15 +106,8 @@ impl EffectSpriteCache {
         } else {
             wgpu::FilterMode::Nearest
         };
-        let textures = upload_sprite_textures_filtered(
-            &images,
-            indexed_count,
-            device,
-            queue,
-            layout,
-            filter,
-            1,
-        );
+        let textures =
+            upload_sprite_textures_filtered(&images, indexed_count, device, queue, layout, filter);
         self.entries
             .insert(path.to_string(), EffectSpriteEntry { textures, act });
         true

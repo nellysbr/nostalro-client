@@ -16,6 +16,7 @@ use crate::sprite_path::{
 use models::enums::weapon::WeaponType;
 
 pub fn load_sprite_data(grf: &GrfArchive, spr_path: &str, act_path: &str) -> Option<SpriteData> {
+    ragnarok_profiling::profile_function!();
     let spr_data = match grf.read_file(spr_path) {
         Ok(d) => d,
         Err(e) => {
@@ -94,6 +95,7 @@ pub fn load_body_sprite(
     sex: u8,
     cloth_color: u16,
 ) -> Option<SpriteData> {
+    ragnarok_profiling::profile_function!();
     let base_path = body_sprite_path(job, sex);
     let spr_path = format!("{base_path}.spr");
     let act_path = format!("{base_path}.act");
@@ -147,7 +149,10 @@ pub fn load_body_sprite(
     };
 
     let rgba_count = spr.rgba_sprites.len();
-    let (images, indexed_count) = spr.to_rgba_images_with_palette(override_palette.as_ref());
+    let (images, indexed_count) = {
+        ragnarok_profiling::profile_scope!("to_rgba");
+        spr.to_rgba_images_with_palette(override_palette.as_ref())
+    };
 
     if ragnarok_profiling::debug::trace_texture_load() {
         tracing::info!(
@@ -170,6 +175,7 @@ pub fn load_head_sprite(
     hair_color: u16,
     orc_face: bool,
 ) -> Option<SpriteData> {
+    ragnarok_profiling::profile_function!();
     let base_path = if orc_face {
         crate::sprite_path::ORCFACE_SPRITE_PATH.to_string()
     } else {
@@ -228,7 +234,10 @@ pub fn load_head_sprite(
     };
 
     let rgba_count = spr.rgba_sprites.len();
-    let (images, indexed_count) = spr.to_rgba_images_with_palette(override_palette.as_ref());
+    let (images, indexed_count) = {
+        ragnarok_profiling::profile_scope!("to_rgba");
+        spr.to_rgba_images_with_palette(override_palette.as_ref())
+    };
 
     if ragnarok_profiling::debug::trace_texture_load() {
         tracing::info!(
@@ -286,6 +295,7 @@ pub fn load_weapon_sprite(
     weapon_type: WeaponType,
     look_id: u16,
 ) -> Option<SpriteData> {
+    ragnarok_profiling::profile_function!();
     if weapon_look_names_a_file(weapon_type, look_id)
         && let Some(data) = load_if_present(
             grf,
@@ -325,6 +335,7 @@ pub fn load_weapon_trail_sprite(
     weapon_type: WeaponType,
     look_id: u16,
 ) -> Option<SpriteData> {
+    ragnarok_profiling::profile_function!();
     if weapon_look_names_a_file(weapon_type, look_id)
         && let Some(item_path) =
             crate::sprite_path::weapon_item_trail_sprite_path(job, sex, look_id, weapon_type)
@@ -361,6 +372,7 @@ pub fn load_weapon_trail_sprite(
 }
 
 pub fn load_headgear_sprite(grf: &GrfArchive, suffix: &str, sex: u8) -> Option<SpriteData> {
+    ragnarok_profiling::profile_function!();
     let base_path = crate::sprite_path::headgear_sprite_path(suffix, sex);
     load_sprite_data(
         grf,
@@ -370,6 +382,7 @@ pub fn load_headgear_sprite(grf: &GrfArchive, suffix: &str, sex: u8) -> Option<S
 }
 
 pub fn load_shield_sprite(grf: &GrfArchive, view_id: u16, job: u16, sex: u8) -> Option<SpriteData> {
+    ragnarok_profiling::profile_function!();
     if let Some(base_path) = crate::sprite_path::shield_sprite_path(view_id, job, sex) {
         let result = load_sprite_data(
             grf,
@@ -443,6 +456,7 @@ pub fn load_player_sprite_data(
     orc_face: bool,
     is_gm: bool,
 ) -> Option<PlayerSpriteData> {
+    ragnarok_profiling::profile_function!();
     let head = load_head_sprite(grf, head_id, sex, hair_color, orc_face);
     if is_gm {
         let body = load_sprite_data_from_spr(

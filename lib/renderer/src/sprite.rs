@@ -30,26 +30,9 @@ impl SpriteVertex {
 }
 
 static FILTERING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
-static UPSCALE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
 
 pub fn set_filtering(on: bool) {
     FILTERING.store(on, std::sync::atomic::Ordering::Relaxed);
-}
-
-/// Whole-number enlargement applied to a sprite before upload. Clamped to 1..=4.
-pub fn set_upscale(factor: u32) {
-    UPSCALE.store(factor.clamp(1, 4), std::sync::atomic::Ordering::Relaxed);
-}
-
-pub fn upscale() -> u32 {
-    UPSCALE.load(std::sync::atomic::Ordering::Relaxed)
-}
-
-/// How many screen pixels one sprite texel covers at `camera`, which is the
-/// magnification an upscale has to cancel.
-pub fn texel_to_pixel(camera: &crate::camera::Camera, map_zoom: f32, dpi_scale: f32, logical_h: f32) -> f32 {
-    let t = camera.target;
-    camera.perspective_scale(t.x, t.y, t.z, logical_h) * map_zoom / 75.0 * dpi_scale
 }
 
 fn sprite_filter() -> wgpu::FilterMode {
@@ -73,12 +56,14 @@ pub fn upload_sprite_textures(
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
 ) -> SpriteTextures {
-    let filter = sprite_filter();
-    let upscale = match filter {
-        wgpu::FilterMode::Linear => upscale(),
-        _ => 1,
-    };
-    upload_sprite_textures_filtered(images, indexed_count, device, queue, layout, filter, upscale)
+    upload_sprite_textures_filtered(
+        images,
+        indexed_count,
+        device,
+        queue,
+        layout,
+        sprite_filter(),
+    )
 }
 
 /// Bitmap glyphs (damage digits, the miss/crit plates, the rank and time
@@ -99,7 +84,6 @@ pub fn upload_glyph_textures(
         queue,
         layout,
         wgpu::FilterMode::Nearest,
-        1,
     )
 }
 
@@ -110,8 +94,11 @@ pub fn upload_sprite_textures_filtered(
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
     filter: wgpu::FilterMode,
-    upscale: u32,
 ) -> SpriteTextures {
+    ragnarok_profiling::profile_scope!(
+        "upload_sprite_textures",
+        format!("{} images", images.len())
+    );
     let mut bind_groups = Vec::with_capacity(images.len());
     let mut sizes = Vec::with_capacity(images.len());
 
@@ -121,34 +108,18 @@ pub fn upload_sprite_textures_filtered(
         } else {
             format!("spr_rgba_{}", i - indexed_count)
         };
-        let enlarged = (upscale > 1 && img.width > 0 && img.height > 0).then(|| {
-            let buf: image::RgbaImage =
-                image::ImageBuffer::from_raw(img.width, img.height, img.data.clone())
-                    .expect("sprite buffer matches its dimensions");
-            image::imageops::resize(
-                &buf,
-                img.width * upscale,
-                img.height * upscale,
-                image::imageops::FilterType::Nearest,
-            )
-        });
-        let (data, up_w, up_h) = match &enlarged {
-            Some(up) => (up.as_raw().as_slice(), up.width(), up.height()),
-            None => (img.data.as_slice(), img.width, img.height),
-        };
         let bg = create_texture_bind_group_from_rgba(
             device,
             queue,
-            data,
-            up_w,
-            up_h,
+            &img.data,
+            img.width,
+            img.height,
             layout,
             &label,
             filter,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             wgpu::AddressMode::ClampToEdge,
         );
-        // The quad is sized from `sizes`, so it stays in source texels.
         sizes.push((img.width, img.height));
         bind_groups.push(bg);
     }
@@ -173,7 +144,9 @@ pub struct SpriteUniforms {
     pub fog_near: f32,
     pub fog_far: f32,
     pub fog_enabled: f32,
-    pub _pad3: f32,
+    /// Whether the fragment shader snaps the sample point to the texel grid, so
+    /// filtering only softens the seam between two texels.
+    pub sharpen: f32,
     /// The camera planes the vertex depth was projected with. A sprite quad
     /// carries an NDC depth and no world position, so the shader inverts the
     /// projection to get the eye distance the fog ramp needs.
@@ -195,7 +168,7 @@ impl Default for SpriteUniforms {
             fog_near: 0.0,
             fog_far: 1.0,
             fog_enabled: 0.0,
-            _pad3: 0.0,
+            sharpen: 0.0,
             clip_near: 1.0,
             clip_far: 1.0,
             _pad4: [0.0, 0.0],
@@ -588,6 +561,11 @@ impl SpriteRenderer {
         self.uniforms.screen_size = [logical_width, logical_height];
         self.uniforms.zoom = 1.0;
         self.uniforms.pan = [0.0, 0.0];
+        self.update_uniforms(queue, &self.uniforms);
+    }
+
+    pub fn set_sharpen(&mut self, queue: &wgpu::Queue, on: bool) {
+        self.uniforms.sharpen = if on { 1.0 } else { 0.0 };
         self.update_uniforms(queue, &self.uniforms);
     }
 
@@ -1325,6 +1303,7 @@ pub fn build_entity_sprite(
     shield: Option<SpriteData>,
     shadow: Option<SpriteData>,
 ) -> EntitySprite {
+    ragnarok_profiling::profile_function!();
     let body_textures =
         upload_sprite_textures(&body.images, body.indexed_count, device, queue, layout);
     let body_act = body.act;

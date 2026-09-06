@@ -48,38 +48,6 @@ impl App {
         self.windows.graphic_options.toggle();
     }
 
-    /// Re-derives the sprite upscale factor from the camera and stores it.
-    /// Returns the factor in force, which is 1 while the setting is off.
-    pub(crate) fn refresh_sprite_upscale(&self) -> u32 {
-        let Some(renderer) = self.renderer.as_ref() else {
-            return ragnarok_renderer::sprite::upscale();
-        };
-        let logical_h = renderer.device.surface_config.height as f32 / renderer.dpi_scale;
-        let ratio = self.game.session.map_coords.map(|coords| {
-            ragnarok_renderer::sprite::texel_to_pixel(
-                &renderer.camera,
-                coords.zoom(),
-                renderer.dpi_scale,
-                logical_h,
-            )
-        });
-        let factor = match (self.config.custom.filtering.sprite_upscale, ratio) {
-            (true, Some(ratio)) => ratio.ceil() as u32,
-            _ => 1,
-        };
-        ragnarok_renderer::sprite::set_upscale(factor);
-        if ragnarok_profiling::debug::trace_sprite_scale() {
-            tracing::info!(
-                "[sprite-scale] texel_to_pixel={:.2} dpi={:.2} camera_distance={:.0} upscale={}",
-                ratio.unwrap_or(0.0),
-                renderer.dpi_scale,
-                renderer.camera.distance,
-                ragnarok_renderer::sprite::upscale(),
-            );
-        }
-        ragnarok_renderer::sprite::upscale()
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn apply_graphics_settings(
         &mut self,
@@ -162,11 +130,17 @@ impl App {
                 );
             }
         }
+        if sprite_filter_changed || upscale_changed {
+            let sharpen = sprite_upscale && filter_sprites;
+            if let Some(renderer) = &mut self.renderer {
+                renderer.set_sprite_upscale(sharpen);
+            }
+            if ragnarok_profiling::debug::trace_sprite_scale() {
+                tracing::info!("[sprite-scale] shader upscale={sharpen}");
+            }
+        }
         if sprite_filter_changed {
             ragnarok_renderer::sprite::set_filtering(filter_sprites);
-        }
-        if sprite_filter_changed || upscale_changed {
-            let factor = self.refresh_sprite_upscale();
             // `load_missing_entity_sprites` rebuilds every entity but the player
             // on the next frame.
             self.game.sprite_caches.sprites.clear();
@@ -175,16 +149,14 @@ impl App {
             if let Some(gid) = self.game.world.entities.player_id() {
                 self.reload_player_sprite(gid);
             }
-            if upscale_changed {
-                let message = match (sprite_upscale, filter_sprites) {
-                    (true, true) => format!("Sprite upscale: {factor}x"),
-                    (true, false) => {
-                        "Sprite upscale applies once sprite filtering is on.".to_string()
-                    }
-                    (false, _) => "Sprite upscale: off".to_string(),
-                };
-                self.windows.chat_window.add_system(message);
-            }
+        }
+        if upscale_changed {
+            let message = match (sprite_upscale, filter_sprites) {
+                (true, true) => "Sprite upscale: on",
+                (true, false) => "Sprite upscale applies once sprite filtering is on.",
+                (false, _) => "Sprite upscale: off",
+            };
+            self.windows.chat_window.add_system(message.to_string());
         }
         self.effect_queue.set_effects_enabled(show_skill_effects);
         if aura_changed {

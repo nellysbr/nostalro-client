@@ -49,6 +49,7 @@ impl App {
     }
 
     pub(crate) fn reload_player_sprite(&mut self, gid: u32) {
+        profile_function!();
         let entity = match self.game.world.entities.get(gid) {
             Some(e) => e,
             None => return,
@@ -96,6 +97,7 @@ impl App {
         head_bottom: u16,
         shield_id: u16,
     ) {
+        profile_function!();
         let (orc_face, is_gm) = self
             .game
             .world
@@ -148,6 +150,7 @@ impl App {
         orc_face: bool,
         is_gm: bool,
     ) -> Option<Rc<EntitySprite>> {
+        profile_function!();
         let (grf, renderer) = match (&self.grf, &self.renderer) {
             (Some(g), Some(r)) => (g, r),
             _ => return None,
@@ -199,6 +202,7 @@ impl App {
     /// cache keyed by member GID, for the face icons in the guild roster. Kept
     /// separate from `game.sprites` so it never collides with on-screen entities.
     pub(crate) fn load_guild_member_sprites(&mut self) {
+        profile_function!();
         self.game.sprite_caches.guild_head_sprites.clear();
         let members: Vec<(u32, u16, u8, u16, u16)> = match &self.game.guild {
             Some(g) => g
@@ -293,6 +297,7 @@ impl App {
         hair_color: u16,
         _direction: u8,
     ) {
+        profile_function!();
         let (grf, renderer) = match (&self.grf, &self.renderer) {
             (Some(g), Some(r)) => (g, r),
             _ => return,
@@ -530,6 +535,7 @@ impl App {
     }
 
     pub(crate) fn load_missing_entity_sprites(&mut self) {
+        profile_function!();
         let missing: Vec<_> = self
             .game
             .world

@@ -402,6 +402,12 @@ impl Renderer {
         self.preload_effect_textures(&paths, grf);
     }
 
+    /// Entity sprites only: effect billboards share the sprite shader but must
+    /// keep sampling their textures plainly.
+    pub fn set_sprite_upscale(&mut self, on: bool) {
+        self.sprite_renderer.set_sharpen(&self.device.queue, on);
+    }
+
     /// Filters ground and model textures, the way the original game does. Pass
     /// the archive to rebuild the textures a loaded map already uploaded.
     pub fn set_world_filtering(&mut self, on: bool, grf: Option<&GrfArchive>) {
