@@ -340,7 +340,7 @@ pub enum GameEvent {
         gid: u32,
     },
     SkillFailed {
-        skill: SkillEnum,
+        skill: Option<SkillEnum>,
         cause: u8,
         num: u32,
     },

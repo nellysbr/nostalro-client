@@ -1129,7 +1129,7 @@ pub fn dispatch_packet(packet: &dyn Packet, packetver: u32) -> Vec<GameEvent> {
     if let Some(p) = any.downcast_ref::<PacketZcAckTouseskill>() {
         if !p.result {
             return vec![GameEvent::SkillFailed {
-                skill: SkillEnum::from_id(p.skid as u32),
+                skill: (p.skid != 0).then(|| SkillEnum::from_id(p.skid as u32)),
                 cause: p.cause,
                 num: p.num,
             }];
@@ -5606,8 +5606,21 @@ mod tests {
             [GameEvent::SkillFailed { skill, cause, num }] => {
                 assert_eq!(
                     (*skill, *cause, *num),
-                    (SkillEnum::AcDouble, 71, 0x0499_0002)
+                    (Some(SkillEnum::AcDouble), 71, 0x0499_0002)
                 );
+            }
+            other => panic!("expected SkillFailed, got {other:?}"),
+        }
+
+        let mut no_bullet = PacketZcAckTouseskill::new(packetver);
+        no_bullet.set_skid(0);
+        no_bullet.set_num(0);
+        no_bullet.set_result(false);
+        no_bullet.set_cause(84);
+        no_bullet.fill_raw();
+        match dispatch_packet(&no_bullet, packetver).as_slice() {
+            [GameEvent::SkillFailed { skill, cause, num }] => {
+                assert_eq!((*skill, *cause, *num), (None, 84, 0));
             }
             other => panic!("expected SkillFailed, got {other:?}"),
         }

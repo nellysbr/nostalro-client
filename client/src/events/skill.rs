@@ -912,7 +912,7 @@ impl App {
         self.game.character.cooldowns.is_on_cooldown(skill, now)
     }
 
-    pub(super) fn handle_skill_failed(&mut self, skill: SkillEnum, cause: u8, num: u32) {
+    pub(super) fn handle_skill_failed(&mut self, skill: Option<SkillEnum>, cause: u8, num: u32) {
         self.game.pending_casts.pending_skill_target = None;
         self.game.pending_casts.pending_skill = None;
         self.game.pending_casts.pending_skill_level = None;

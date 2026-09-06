@@ -9,10 +9,10 @@ pub use models::enums::skill_enums::SkillEnum;
 ///
 /// Cause 71 is not here: its entry is a template needing the item name and
 /// amount, so the caller formats it.
-pub fn skill_failure_msg_id(cause: u8, skill: SkillEnum, btype: u16) -> Option<u16> {
+pub fn skill_failure_msg_id(cause: u8, skill: Option<SkillEnum>, btype: u16) -> Option<u16> {
     Some(match cause {
         0 => match skill {
-            SkillEnum::NvBasic => match btype {
+            Some(SkillEnum::NvBasic) => match btype {
                 0 => 159,
                 1 => 160,
                 2 => 161,
@@ -24,9 +24,9 @@ pub fn skill_failure_msg_id(cause: u8, skill: SkillEnum, btype: u16) -> Option<u
                 8 => 1304,
                 _ => return None,
             },
-            SkillEnum::AlWarp => 214,
-            SkillEnum::TfSteal => 205,
-            SkillEnum::TfPoison => 207,
+            Some(SkillEnum::AlWarp) => 214,
+            Some(SkillEnum::TfSteal) => 205,
+            Some(SkillEnum::TfPoison) => 207,
             _ => 204,
         },
         1 => 202,
@@ -366,31 +366,34 @@ mod tests {
     #[test]
     fn skill_failure_msg_id_maps_every_reachable_cause() {
         let basic = SkillEnum::NvBasic;
-        assert_eq!(skill_failure_msg_id(0, basic, 3), Some(162));
-        assert_eq!(skill_failure_msg_id(0, basic, 7), Some(383));
-        assert_eq!(skill_failure_msg_id(0, basic, 9), None);
-        assert_eq!(skill_failure_msg_id(0, SkillEnum::AlWarp, 0), Some(214));
-        assert_eq!(skill_failure_msg_id(0, SkillEnum::TfSteal, 0), Some(205));
-        assert_eq!(skill_failure_msg_id(0, SkillEnum::TfPoison, 0), Some(207));
-        assert_eq!(skill_failure_msg_id(0, SkillEnum::SmBash, 0), Some(204));
+        assert_eq!(skill_failure_msg_id(0, Some(basic), 3), Some(162));
+        assert_eq!(skill_failure_msg_id(0, Some(basic), 7), Some(383));
+        assert_eq!(skill_failure_msg_id(0, Some(basic), 9), None);
+        assert_eq!(skill_failure_msg_id(0, Some(SkillEnum::AlWarp), 0), Some(214));
+        assert_eq!(skill_failure_msg_id(0, Some(SkillEnum::TfSteal), 0), Some(205));
+        assert_eq!(skill_failure_msg_id(0, Some(SkillEnum::TfPoison), 0), Some(207));
+        assert_eq!(skill_failure_msg_id(0, Some(SkillEnum::SmBash), 0), Some(204));
 
-        assert_eq!(skill_failure_msg_id(1, SkillEnum::SmBash, 0), Some(202));
-        assert_eq!(skill_failure_msg_id(6, SkillEnum::AcDouble, 0), Some(239));
-        assert_eq!(skill_failure_msg_id(9, SkillEnum::SmBash, 0), Some(580));
-        assert_eq!(skill_failure_msg_id(10, SkillEnum::SmBash, 0), Some(285));
+        assert_eq!(skill_failure_msg_id(1, Some(SkillEnum::SmBash), 0), Some(202));
+        assert_eq!(skill_failure_msg_id(6, Some(SkillEnum::AcDouble), 0), Some(239));
+        assert_eq!(skill_failure_msg_id(9, Some(SkillEnum::SmBash), 0), Some(580));
+        assert_eq!(skill_failure_msg_id(10, Some(SkillEnum::SmBash), 0), Some(285));
 
-        assert_eq!(skill_failure_msg_id(11, SkillEnum::SmBash, 0), Some(1396));
-        assert_eq!(skill_failure_msg_id(16, SkillEnum::SmBash, 0), Some(1401));
-        assert_eq!(skill_failure_msg_id(17, SkillEnum::SmBash, 0), Some(1411));
-        assert_eq!(skill_failure_msg_id(23, SkillEnum::SmBash, 0), Some(1417));
-        assert_eq!(skill_failure_msg_id(24, SkillEnum::SmBash, 0), Some(1425));
-        assert_eq!(skill_failure_msg_id(27, SkillEnum::SmBash, 0), Some(1428));
+        assert_eq!(skill_failure_msg_id(11, Some(SkillEnum::SmBash), 0), Some(1396));
+        assert_eq!(skill_failure_msg_id(16, Some(SkillEnum::SmBash), 0), Some(1401));
+        assert_eq!(skill_failure_msg_id(17, Some(SkillEnum::SmBash), 0), Some(1411));
+        assert_eq!(skill_failure_msg_id(23, Some(SkillEnum::SmBash), 0), Some(1417));
+        assert_eq!(skill_failure_msg_id(24, Some(SkillEnum::SmBash), 0), Some(1425));
+        assert_eq!(skill_failure_msg_id(27, Some(SkillEnum::SmBash), 0), Some(1428));
 
-        assert_eq!(skill_failure_msg_id(34, SkillEnum::SmBash, 0), Some(1436));
-        assert_eq!(skill_failure_msg_id(84, SkillEnum::SmBash, 0), Some(2466));
+        assert_eq!(skill_failure_msg_id(34, Some(SkillEnum::SmBash), 0), Some(1436));
+        assert_eq!(skill_failure_msg_id(84, Some(SkillEnum::SmBash), 0), Some(2466));
 
-        assert_eq!(skill_failure_msg_id(30, SkillEnum::SmBash, 0), None);
-        assert_eq!(skill_failure_msg_id(200, SkillEnum::SmBash, 0), None);
+        assert_eq!(skill_failure_msg_id(0, None, 0), Some(204));
+        assert_eq!(skill_failure_msg_id(84, None, 0), Some(2466));
+
+        assert_eq!(skill_failure_msg_id(30, Some(SkillEnum::SmBash), 0), None);
+        assert_eq!(skill_failure_msg_id(200, Some(SkillEnum::SmBash), 0), None);
     }
 
     #[test]
