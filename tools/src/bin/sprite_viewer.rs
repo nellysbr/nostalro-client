@@ -842,7 +842,7 @@ impl App {
 
             ui_renderer.render(
                 &mut encoder,
-                &view,
+                &scene_view,
                 &device.device,
                 &device.queue,
                 &resolved,
@@ -909,7 +909,7 @@ impl ApplicationHandler for App {
         );
         let ui_renderer = UiRenderer::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &tex_cache.bind_group_layout,
             device.surface_config.width as f32,
             device.surface_config.height as f32,

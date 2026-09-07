@@ -429,6 +429,10 @@ impl App {
         };
 
         let view = output.texture.create_view(&Default::default());
+        let scene_view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(device.scene_format),
+            ..Default::default()
+        });
         let mut encoder = device.device.create_command_encoder(&Default::default());
 
         // Clear pass
@@ -531,7 +535,7 @@ impl App {
 
             ui_renderer.render(
                 &mut encoder,
-                &view,
+                &scene_view,
                 &device.device,
                 &device.queue,
                 &resolved,
@@ -575,7 +579,7 @@ impl ApplicationHandler for App {
         );
         let ui_renderer = UiRenderer::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &tex_cache.bind_group_layout,
             device.surface_config.width as f32,
             device.surface_config.height as f32,

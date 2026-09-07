@@ -20,7 +20,6 @@ struct RippleUniform {
 }
 
 struct SceneTarget {
-    view: wgpu::TextureView,
     scene_view: wgpu::TextureView,
     bind_group: wgpu::BindGroup,
     width: u32,
@@ -160,13 +159,13 @@ impl ScreenDistortion {
     }
 
     /// The offscreen colour target the frame must be drawn into while the ripple
-    /// is running, as (scene, ui) views.
-    pub fn scene_views(
+    /// is running.
+    pub fn scene_view(
         &mut self,
         device: &wgpu::Device,
         width: u32,
         height: u32,
-    ) -> (wgpu::TextureView, wgpu::TextureView) {
+    ) -> wgpu::TextureView {
         let stale = self
             .target
             .as_ref()
@@ -211,7 +210,6 @@ impl ScreenDistortion {
                 ],
             });
             self.target = Some(SceneTarget {
-                view,
                 scene_view,
                 bind_group,
                 width,
@@ -219,7 +217,7 @@ impl ScreenDistortion {
             });
         }
         let target = self.target.as_ref().expect("target was just created");
-        (target.scene_view.clone(), target.view.clone())
+        target.scene_view.clone()
     }
 
     /// Draw the offscreen frame to `output`, distorted, and advance the wave.

@@ -170,6 +170,10 @@ impl<F: FnMut(&mut ExampleCtx)> UiExampleApp<F> {
         drop(ctx);
 
         let view = output.texture.create_view(&Default::default());
+        let scene_view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(gpu.device.scene_format),
+            ..Default::default()
+        });
         let mut encoder = gpu
             .device
             .device
@@ -234,7 +238,7 @@ impl<F: FnMut(&mut ExampleCtx)> UiExampleApp<F> {
 
         gpu.ui_renderer.render(
             &mut encoder,
-            &view,
+            &scene_view,
             &gpu.device.device,
             &gpu.device.queue,
             &resolved,
@@ -282,7 +286,7 @@ impl<F: FnMut(&mut ExampleCtx)> ApplicationHandler for UiExampleApp<F> {
         let h = device.surface_config.height as f32 / dpi_scale;
         let ui_renderer = UiRenderer::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &tex_cache.bind_group_layout,
             w,
             h,

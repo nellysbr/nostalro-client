@@ -286,7 +286,7 @@ impl Renderer {
 
         let ui_sprite_renderer = SpriteRenderer::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &texture_cache.bind_group_layout,
             logical_w,
             logical_h,
@@ -296,7 +296,7 @@ impl Renderer {
 
         let ui_renderer = UiRenderer::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &texture_cache.bind_group_layout,
             logical_w,
             logical_h,
@@ -768,7 +768,6 @@ impl Renderer {
             }
         };
 
-        let view = output.texture.create_view(&Default::default());
         let scene_view = output.texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(self.device.scene_format),
             ..Default::default()
@@ -778,12 +777,12 @@ impl Renderer {
         let phys_h = self.device.surface_config.height;
         let clear = self.clear_color;
         if self.screen_distortion.is_active() {
-            let (offscreen_scene, offscreen_ui) =
+            let offscreen_scene =
                 self.screen_distortion
-                    .scene_views(&self.device.device, phys_w, phys_h);
+                    .scene_view(&self.device.device, phys_w, phys_h);
             self.render_into(
                 &offscreen_scene,
-                &offscreen_ui,
+                &offscreen_scene,
                 &depth_view,
                 phys_w,
                 phys_h,
@@ -794,13 +793,14 @@ impl Renderer {
                 .device
                 .device
                 .create_command_encoder(&Default::default());
+            let view = output.texture.create_view(&Default::default());
             self.screen_distortion
                 .resolve(&mut encoder, &self.device.queue, &view);
             self.device.queue.submit(std::iter::once(encoder.finish()));
         } else {
             self.render_into(
                 &scene_view,
-                &view,
+                &scene_view,
                 &depth_view,
                 phys_w,
                 phys_h,

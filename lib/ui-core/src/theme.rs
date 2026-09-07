@@ -53,24 +53,7 @@ impl FallbackPalette {
 
 pub const CORNER_RADIUS: f32 = 3.0;
 
-/// The UI surface is sRGB, so vertex colors on the untextured (White) path are
-/// re-encoded on write. Procedural fill colors are authored as sRGB, so convert
-/// them to linear here and the hardware encode lands them back on their value.
-fn to_linear(c: [f32; 4]) -> [f32; 4] {
-    let f = |x: f32| {
-        if x <= 0.04045 {
-            x / 12.92
-        } else {
-            ((x + 0.055) / 1.055).powf(2.4)
-        }
-    };
-    [f(c[0]), f(c[1]), f(c[2]), c[3]]
-}
-
-fn push_white(ui: &mut UiFrame, mut verts: Vec<UiVertex>, indices: Vec<u32>) {
-    for v in &mut verts {
-        v.color = to_linear(v.color);
-    }
+fn push_white(ui: &mut UiFrame, verts: Vec<UiVertex>, indices: Vec<u32>) {
     ui.draw_calls.push(DrawCall {
         vertices: verts,
         indices,
@@ -150,7 +133,7 @@ pub fn fallback_button(ui: &mut UiFrame, r: Rect, hovered: bool, pressed: bool, 
             label,
             tx,
             ty,
-            to_linear(FallbackPalette::TEXT_ON_LIGHT),
+            FallbackPalette::TEXT_ON_LIGHT,
             ui.atlas,
         );
         if !v.is_empty() {
