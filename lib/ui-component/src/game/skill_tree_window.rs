@@ -426,10 +426,10 @@ impl InGameWindow for SkillTreeWindow {
 
                 let tooltip_text = tooltip_lines.join("\n");
                 let tooltip_max_w: f32 = 220.0;
-                let wrapped = draw::word_wrap(
+                let wrapped = draw::colored_word_wrap(
                     &tooltip_text,
                     tooltip_max_w,
-                    |t| ui.atlas.measure_text(&draw::strip_color_codes(t)),
+                    |t| ui.atlas.measure_text(t),
                     false,
                 );
 
@@ -512,6 +512,8 @@ mod tests {
     use super::*;
     use ragnarok_game::character::Character;
     use ragnarok_game::data_table::DataTable;
+    use ragnarok_game::data_table::skill_description_table::SkillDescriptionTable;
+    use std::collections::HashMap;
     use ragnarok_game::skill::SkillData;
     use ragnarok_ui::context::UiContext;
     use ragnarok_ui::state::StateCache;
@@ -531,6 +533,49 @@ mod tests {
         }]);
         character.skills.open();
         character
+    }
+
+    #[test]
+    fn tooltip_keeps_a_colour_open_across_description_lines() {
+        let mut win = SkillTreeWindow::new();
+        let mut character = Character::new();
+        character.skills.set_skills(vec![SkillData {
+            skill: SkillEnum::SmSword,
+            level: 10,
+            selected_level: 10,
+            sp_cost: 0,
+            attack_range: 0,
+            upgradable: false,
+            skill_target_type: SkillTargetType::Passive,
+        }]);
+        character.skills.open();
+
+        let mut data = DataTable::new();
+        let mut entries = HashMap::new();
+        entries.insert(
+            "SM_SWORD".to_string(),
+            vec![
+                "^777777grey opened here".to_string(),
+                "still grey. ^000000".to_string(),
+            ],
+        );
+        data.skill_description = Some(SkillDescriptionTable::from_entries(entries));
+
+        let mut state = StateCache::new();
+        let mut ctx = UiContext::new(1024.0, 768.0);
+        ctx.mouse_x = 400.0 + PAD_X + 5.0;
+        ctx.mouse_y = 100.0 + TITLE_H + ROW_H / 2.0;
+        let mut ui = test_frame(&mut ctx, &mut state);
+        win.build(&mut ui, &mut crate::BuildCtx::test(&mut character, &data));
+
+        const GREY: f32 = 0x77 as f32 / 255.0;
+        let grey_lines = ui
+            .tooltip_draw_calls
+            .iter()
+            .filter(|c| matches!(c.texture, TextureRef::FontAtlas))
+            .filter(|c| c.vertices.iter().all(|v| v.color[0] == GREY))
+            .count();
+        assert_eq!(grey_lines, 2, "the second line lost the open colour");
     }
 
     #[test]

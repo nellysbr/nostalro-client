@@ -351,10 +351,10 @@ pub(crate) fn draw_companion_skill_tooltip(
     }
 
     let tooltip_text = lines.join("\n");
-    let wrapped = draw::word_wrap(
+    let wrapped = draw::colored_word_wrap(
         &tooltip_text,
         220.0,
-        |t| ui.atlas.measure_text(&draw::strip_color_codes(t)),
+        |t| ui.atlas.measure_text(t),
         false,
     );
 
