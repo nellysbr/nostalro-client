@@ -262,7 +262,7 @@ impl<F: FnMut(&mut ExampleCtx)> ApplicationHandler for UiExampleApp<F> {
         let window = Arc::new(event_loop.create_window(attrs).unwrap());
         let device = block_on(RenderDevice::new(window.clone()));
         let dpi_scale = 1.5_f32;
-        let mut tex_cache = TextureCache::new(&device.device, dpi_scale);
+        let mut tex_cache = TextureCache::new(&device.device);
 
         let font_atlas = FontAtlas::from_embedded(14.0, dpi_scale);
         let font_atlas_bind_group = texture::create_font_atlas_bind_group(

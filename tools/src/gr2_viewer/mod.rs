@@ -353,7 +353,7 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        let texture_cache = TextureCache::new(&device.device, 1.0);
+        let texture_cache = TextureCache::new(&device.device);
         let aspect = device.surface_config.width as f32 / device.surface_config.height as f32;
         let scene = Scene::new(
             &device.device,
@@ -473,7 +473,7 @@ fn screenshot(args: &Args, out_path: &str) {
 
     let grf = GrfArchive::open(Path::new(&args.grf_path)).expect("open grf");
     let format = wgpu::TextureFormat::Rgba8Unorm;
-    let texture_cache = TextureCache::new(&device, 1.0);
+    let texture_cache = TextureCache::new(&device);
     let aspect = args.width as f32 / args.height as f32;
     let mut scene = Scene::new(&device, &queue, &texture_cache, format, &grf, args, aspect)
         .expect("load model");

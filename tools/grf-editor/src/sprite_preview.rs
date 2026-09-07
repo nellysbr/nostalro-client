@@ -132,7 +132,7 @@ impl SpritePreview {
         }))
         .ok()?;
 
-        let tex_cache = TextureCache::new(&device, 1.0);
+        let tex_cache = TextureCache::new(&device);
         let global_uniforms = GlobalUniforms::new(&device);
         let sprite_renderer = SpriteRenderer::new(
             &device,

@@ -559,7 +559,7 @@ impl ApplicationHandler for App {
 
         let window = Arc::new(event_loop.create_window(attrs).unwrap());
         let device = block_on(RenderDevice::new(window.clone()));
-        let tex_cache = TextureCache::new(&device.device, 1.0);
+        let tex_cache = TextureCache::new(&device.device);
 
         let font_atlas = FontAtlas::from_embedded(14.0, 1.0);
         let font_atlas_bind_group = texture::create_font_atlas_bind_group(

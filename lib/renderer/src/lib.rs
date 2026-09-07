@@ -220,7 +220,7 @@ impl Renderer {
             device.surface_config.width as f32 / device.surface_config.height as f32,
         );
         let global_uniforms = GlobalUniforms::new(&device.device);
-        let texture_cache = TextureCache::new(&device.device, dpi_scale);
+        let texture_cache = TextureCache::new(&device.device);
 
         let gr2_pipeline = Gr2ModelPipeline::new(
             &device.device,

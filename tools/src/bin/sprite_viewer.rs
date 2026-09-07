@@ -718,7 +718,6 @@ impl App {
             }
         };
 
-        let view = output.texture.create_view(&Default::default());
         let scene_view = output.texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(device.scene_format),
             ..Default::default()
@@ -871,7 +870,7 @@ impl ApplicationHandler for App {
         let window = Arc::new(event_loop.create_window(attrs).unwrap());
         let device = block_on(RenderDevice::new(window.clone()));
 
-        let tex_cache = TextureCache::new(&device.device, 1.0);
+        let tex_cache = TextureCache::new(&device.device);
 
         let shader_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../lib/renderer/src/shaders");
         let shader_source = std::fs::read_to_string(shader_dir.join("sprite.wgsl"))

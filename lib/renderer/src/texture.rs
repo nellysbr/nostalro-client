@@ -9,7 +9,6 @@ pub struct TextureCache {
     textures: HashMap<String, wgpu::BindGroup>,
     sizes: HashMap<String, (u32, u32)>,
     pub bind_group_layout: wgpu::BindGroupLayout,
-    dpi_scale: f32,
     filter_world: bool,
     world_textures: Vec<String>,
     /// Ground textures, sampled without wrapping. A cell maps the whole texture,
@@ -18,7 +17,7 @@ pub struct TextureCache {
 }
 
 impl TextureCache {
-    pub fn new(device: &wgpu::Device, dpi_scale: f32) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture"),
             entries: &[
@@ -45,7 +44,6 @@ impl TextureCache {
             textures: HashMap::new(),
             sizes: HashMap::new(),
             bind_group_layout,
-            dpi_scale,
             filter_world: true,
             world_textures: Vec::new(),
             ground: HashMap::new(),
@@ -109,32 +107,14 @@ impl TextureCache {
             let logical_h = img.height();
 
             let bind_group = if is_bmp {
-                if dpi_upscale && self.dpi_scale > 1.0 {
-                    let phys_w = (logical_w as f32 * self.dpi_scale) as u32;
-                    let phys_h = (logical_h as f32 * self.dpi_scale) as u32;
-                    let upscaled = image::imageops::resize(
-                        &img,
-                        phys_w,
-                        phys_h,
-                        image::imageops::FilterType::CatmullRom,
-                    );
+                if dpi_upscale {
                     create_texture_bind_group_filtered(
                         device,
                         queue,
-                        &upscaled,
+                        &img,
                         &self.bind_group_layout,
                         name,
                         wgpu::FilterMode::Linear,
-                        wgpu::AddressMode::ClampToEdge,
-                    )
-                } else if dpi_upscale {
-                    create_texture_bind_group_filtered(
-                        device,
-                        queue,
-                        &img,
-                        &self.bind_group_layout,
-                        name,
-                        wgpu::FilterMode::Nearest,
                         wgpu::AddressMode::ClampToEdge,
                     )
                 } else if !self.filter_world {
