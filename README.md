@@ -530,3 +530,6 @@ Various gameplay / effect / UI rendering references:
 - https://www.youtube.com/watch?v=P__GwtWu6pQ (marionette dolls)
 - http://guidesragnarok.free.fr/guides/guildes.php (guild)
 - https://www.youtube.com/watch?v=BuEU4GeoUPQ (chat room)
+
+# Special thanks
+- [@eleriaqueen](https://github.com/eleriaqueen): detailed, accurate bug reports that improved nearly every part of this client.
