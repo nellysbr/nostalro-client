@@ -316,10 +316,10 @@ fn build_mesh(gnd: &GndFile, atlas_dim: u32) -> (Vec<GroundVertex>, Vec<u32>, Ve
                 let wz = y as f32 * gnd.zoom;
 
                 let positions = [
-                    [wx, cell.height_se, wz],
-                    [wx, next_cell.height_sw, wz],
                     [wx, cell.height_ne, wz + gnd.zoom],
+                    [wx, cell.height_se, wz],
                     [wx, next_cell.height_nw, wz + gnd.zoom],
+                    [wx, next_cell.height_sw, wz],
                 ];
 
                 let normal = compute_quad_normal(&positions);
@@ -331,7 +331,7 @@ fn build_mesh(gnd: &GndFile, atlas_dim: u32) -> (Vec<GroundVertex>, Vec<u32>, Ve
                         normal,
                         tex_coord: [surface.tex_u[0], surface.tex_v[0]],
                         lightmap_coord: lm_uvs[0],
-                        color: color_north,
+                        color: color_south,
                     },
                     GroundVertex {
                         position: positions[1],
@@ -352,7 +352,7 @@ fn build_mesh(gnd: &GndFile, atlas_dim: u32) -> (Vec<GroundVertex>, Vec<u32>, Ve
                         normal,
                         tex_coord: [surface.tex_u[3], surface.tex_v[3]],
                         lightmap_coord: lm_uvs[3],
-                        color: color_south,
+                        color: color_north,
                     },
                 ];
 
@@ -1022,6 +1022,73 @@ mod tests {
         let diagonal = -std::f32::consts::FRAC_1_SQRT_2;
         assert!((slope_sw[0] - diagonal).abs() < 1e-4);
         assert!((slope_sw[1] - diagonal).abs() < 1e-4);
+    }
+
+    #[test]
+    fn east_wall_maps_uv_columns_across_the_wall_not_down_it() {
+        let gnd = GndFile {
+            version: (1, 7),
+            width: 2,
+            height: 1,
+            zoom: 1.0,
+            textures: vec!["wall.bmp".to_string()],
+            lightmaps: vec![Lightmap {
+                shadow: [0; 64],
+                color: [0; 192],
+            }],
+            surfaces: vec![GndSurface {
+                tex_u: [0.0, 1.0, 0.0, 1.0],
+                tex_v: [0.0, 0.0, 1.0, 1.0],
+                texture_id: 0,
+                lightmap_id: 0,
+                color_bgra: [255, 255, 255, 255],
+            }],
+            cells: vec![
+                GndCell {
+                    height_sw: 0.0,
+                    height_se: -10.0,
+                    height_nw: 0.0,
+                    height_ne: -20.0,
+                    surface_up: -1,
+                    surface_south: -1,
+                    surface_east: 0,
+                },
+                GndCell {
+                    height_sw: -1.0,
+                    height_se: 0.0,
+                    height_nw: -2.0,
+                    height_ne: 0.0,
+                    surface_up: -1,
+                    surface_south: -1,
+                    surface_east: -1,
+                },
+            ],
+        };
+
+        let (vertices, _, _) = build_mesh(&gnd, 1);
+        assert_eq!(vertices.len(), 4);
+        let at = |u: f32, v: f32| {
+            vertices
+                .iter()
+                .find(|vert| vert.tex_coord == [u, v])
+                .unwrap_or_else(|| panic!("no vertex at uv ({u},{v})"))
+        };
+
+        let top_far = at(0.0, 0.0);
+        let top_near = at(1.0, 0.0);
+        let bottom_far = at(0.0, 1.0);
+        let bottom_near = at(1.0, 1.0);
+
+        assert_eq!(top_far.position, [1.0, -20.0, 1.0]);
+        assert_eq!(top_near.position, [1.0, -10.0, 0.0]);
+        assert_eq!(bottom_far.position, [1.0, -2.0, 1.0]);
+        assert_eq!(bottom_near.position, [1.0, -1.0, 0.0]);
+
+        // The lightmap tile has to share the texture's axes: one column along
+        // the wall, one row down it.
+        assert_eq!(top_far.lightmap_coord[0], bottom_far.lightmap_coord[0]);
+        assert_eq!(top_far.lightmap_coord[1], top_near.lightmap_coord[1]);
+        assert!(top_far.lightmap_coord[1] < bottom_far.lightmap_coord[1]);
     }
 
     #[test]
