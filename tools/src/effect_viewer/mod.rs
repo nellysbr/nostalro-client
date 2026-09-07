@@ -1176,7 +1176,7 @@ impl App {
             eprintln!("[gif] renderer not initialised yet");
             return false;
         };
-        let format = renderer.device.surface_format;
+        let format = renderer.device.scene_format;
         let session = match gif_export::GifSession::begin(
             &renderer.device.device,
             format,
@@ -1620,6 +1620,7 @@ impl App {
                 let color_view = session.target.color_view.clone();
                 let depth_view = session.target.depth_view.clone();
                 renderer.render_into(
+                    &color_view,
                     &color_view,
                     &depth_view,
                     gif_export::GIF_W,

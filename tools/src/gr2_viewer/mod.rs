@@ -320,7 +320,10 @@ impl App {
             }
             Err(_) => return,
         };
-        let view = output.texture.create_view(&Default::default());
+        let view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(device.scene_format),
+            ..Default::default()
+        });
         let mut encoder = device.device.create_command_encoder(&Default::default());
         scene.encode_pass(&mut encoder, &view, &device.depth_view);
         device.queue.submit(std::iter::once(encoder.finish()));
@@ -356,7 +359,7 @@ impl ApplicationHandler for App {
             &device.device,
             &device.queue,
             &texture_cache,
-            device.surface_format,
+            device.scene_format,
             &grf,
             &self.args,
             aspect,
@@ -469,7 +472,7 @@ fn screenshot(args: &Args, out_path: &str) {
     .expect("request device");
 
     let grf = GrfArchive::open(Path::new(&args.grf_path)).expect("open grf");
-    let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+    let format = wgpu::TextureFormat::Rgba8Unorm;
     let texture_cache = TextureCache::new(&device, 1.0);
     let aspect = args.width as f32 / args.height as f32;
     let mut scene = Scene::new(&device, &queue, &texture_cache, format, &grf, args, aspect)

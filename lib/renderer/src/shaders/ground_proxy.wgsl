@@ -24,6 +24,12 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let cell: f32 = 50.0;
@@ -33,5 +39,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dark = vec3<f32>(0.18, 0.18, 0.20);
     let light = vec3<f32>(0.30, 0.30, 0.32);
     let color = mix(dark, light, chk);
-    return vec4<f32>(color, 1.0);
+    return vec4<f32>(linear_to_srgb(color), 1.0);
 }

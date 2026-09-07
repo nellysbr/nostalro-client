@@ -38,12 +38,18 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let tex_color = textureSample(grid_texture, grid_sampler, in.tex_coord);
-    let final_color = tex_color * in.color;
-    if (final_color.a < 0.01) {
+    let a = tex_color.a * in.color.a;
+    if (a < 0.01) {
         discard;
     }
-    return final_color;
+    return vec4<f32>(linear_to_srgb(tex_color.rgb) * in.color.rgb, a);
 }

@@ -719,6 +719,10 @@ impl App {
         };
 
         let view = output.texture.create_view(&Default::default());
+        let scene_view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(device.scene_format),
+            ..Default::default()
+        });
         let mut encoder = device.device.create_command_encoder(&Default::default());
 
         if let Some(renderer) = &mut self.sprite_renderer {
@@ -747,7 +751,7 @@ impl App {
 
                 renderer.render(
                     &mut encoder,
-                    &view,
+                    &scene_view,
                     Some(&device.depth_view),
                     &device.device,
                     &device.queue,
@@ -758,7 +762,7 @@ impl App {
                 encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     label: Some("clear"),
                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
+                        view: &scene_view,
                         depth_slice: None,
                         resolve_target: None,
                         ops: wgpu::Operations {
@@ -774,7 +778,7 @@ impl App {
             encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("clear"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: &scene_view,
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
@@ -875,7 +879,7 @@ impl ApplicationHandler for App {
 
         let sprite_renderer = SpriteRenderer::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &tex_cache.bind_group_layout,
             device.surface_config.width as f32,
             device.surface_config.height as f32,
@@ -1066,7 +1070,7 @@ impl ApplicationHandler for App {
                 {
                     renderer.recreate_pipeline(
                         &device.device,
-                        device.surface_format,
+                        device.scene_format,
                         &tc.bind_group_layout,
                         &new_source,
                     );

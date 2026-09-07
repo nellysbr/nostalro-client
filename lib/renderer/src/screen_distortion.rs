@@ -21,6 +21,7 @@ struct RippleUniform {
 
 struct SceneTarget {
     view: wgpu::TextureView,
+    scene_view: wgpu::TextureView,
     bind_group: wgpu::BindGroup,
     width: u32,
     height: u32,
@@ -32,6 +33,7 @@ pub struct ScreenDistortion {
     sampler: wgpu::Sampler,
     uniform: wgpu::Buffer,
     format: wgpu::TextureFormat,
+    scene_format: wgpu::TextureFormat,
     target: Option<SceneTarget>,
     phase_deg: f32,
     active: bool,
@@ -138,6 +140,7 @@ impl ScreenDistortion {
             sampler,
             uniform,
             format,
+            scene_format: format.remove_srgb_suffix(),
             target: None,
             phase_deg: 0.0,
             active: false,
@@ -157,13 +160,13 @@ impl ScreenDistortion {
     }
 
     /// The offscreen colour target the frame must be drawn into while the ripple
-    /// is running.
-    pub fn scene_view(
+    /// is running, as (scene, ui) views.
+    pub fn scene_views(
         &mut self,
         device: &wgpu::Device,
         width: u32,
         height: u32,
-    ) -> wgpu::TextureView {
+    ) -> (wgpu::TextureView, wgpu::TextureView) {
         let stale = self
             .target
             .as_ref()
@@ -182,9 +185,13 @@ impl ScreenDistortion {
                 format: self.format,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                     | wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: &[self.scene_format],
             });
             let view = texture.create_view(&Default::default());
+            let scene_view = texture.create_view(&wgpu::TextureViewDescriptor {
+                format: Some(self.scene_format),
+                ..Default::default()
+            });
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("screen_distortion"),
                 layout: &self.bind_group_layout,
@@ -205,16 +212,14 @@ impl ScreenDistortion {
             });
             self.target = Some(SceneTarget {
                 view,
+                scene_view,
                 bind_group,
                 width,
                 height,
             });
         }
-        self.target
-            .as_ref()
-            .expect("target was just created")
-            .view
-            .clone()
+        let target = self.target.as_ref().expect("target was just created");
+        (target.scene_view.clone(), target.view.clone())
     }
 
     /// Draw the offscreen frame to `output`, distorted, and advance the wave.

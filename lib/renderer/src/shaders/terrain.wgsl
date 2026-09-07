@@ -27,6 +27,12 @@ struct FogUniforms {
 @group(2) @binding(0) var lightmap_texture: texture_2d<f32>;
 @group(2) @binding(1) var lightmap_sampler: sampler;
 
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
 fn apply_fog(color: vec3<f32>, view_pos: vec3<f32>) -> vec3<f32> {
     if (fog.enabled <= 0.0) {
         return color;
@@ -88,12 +94,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let n_dot_l = max(dot(normalize(in.normal), normalize(light.light_dir.xyz)), 0.0);
     let shadow = lightmap.a;
-    let combined_light = (sunlight * n_dot_l + ambient) * shadow;
-
-    let contrast_correction = clamp(ambient + sunlight - sunlight * ambient, vec3<f32>(0.0), vec3<f32>(1.0));
+    let combined_light =
+        clamp(sunlight * n_dot_l + ambient, vec3<f32>(0.0), vec3<f32>(1.0)) * shadow;
 
     var color = clamp(
-        in.color.rgb * contrast_correction * combined_light * tex_color.rgb + lightmap.rgb,
+        in.color.rgb * combined_light * linear_to_srgb(tex_color.rgb) + lightmap.rgb,
         vec3<f32>(0.0),
         vec3<f32>(1.0),
     );

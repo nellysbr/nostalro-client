@@ -74,13 +74,17 @@ impl GroundRenderer {
             build_cell_lightmap(gnd, device, queue, &texture_cache.bind_group_layout);
 
         // Disabled lightmap: black color map (adds nothing) with full alpha (no shadow).
-        let off_img = image::RgbaImage::from_raw(1, 1, vec![0, 0, 0, 255]).unwrap();
-        let lightmap_off_bind_group = texture::create_texture_bind_group(
+        let lightmap_off_bind_group = texture::create_texture_bind_group_from_rgba(
             device,
             queue,
-            &off_img,
+            &[0, 0, 0, 255],
+            1,
+            1,
             &texture_cache.bind_group_layout,
             "lightmap_off",
+            wgpu::FilterMode::Linear,
+            wgpu::TextureFormat::Rgba8Unorm,
+            wgpu::AddressMode::Repeat,
         );
 
         let atlas_dim = lightmap_atlas_dim(gnd.lightmaps.len());
@@ -660,12 +664,17 @@ fn build_cell_lightmap(
 ) -> wgpu::BindGroup {
     let (tex_w, tex_h) = cell_lightmap_size(gnd);
     let img = image::RgbaImage::from_raw(tex_w, tex_h, pack_cell_lightmap(gnd)).unwrap();
-    texture::create_texture_bind_group_clamped(
+    texture::create_texture_bind_group_from_rgba(
         device,
         queue,
-        &img,
+        img.as_raw(),
+        tex_w,
+        tex_h,
         bind_group_layout,
         "lightmap_cells",
+        wgpu::FilterMode::Linear,
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::AddressMode::ClampToEdge,
     )
 }
 
@@ -681,7 +690,18 @@ fn build_lightmap_atlas(
     let pixels = pack_lightmap_atlas(lightmaps, grid, atlas_size);
 
     let img = image::RgbaImage::from_raw(atlas_size, atlas_size, pixels).unwrap();
-    texture::create_texture_bind_group(device, queue, &img, bind_group_layout, "lightmap_atlas")
+    texture::create_texture_bind_group_from_rgba(
+        device,
+        queue,
+        img.as_raw(),
+        atlas_size,
+        atlas_size,
+        bind_group_layout,
+        "lightmap_atlas",
+        wgpu::FilterMode::Linear,
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::AddressMode::Repeat,
+    )
 }
 
 fn create_buffer<T: bytemuck::Pod>(

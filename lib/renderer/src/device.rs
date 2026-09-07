@@ -22,6 +22,7 @@ pub struct RenderDevice {
     pub surface: wgpu::Surface<'static>,
     pub surface_config: wgpu::SurfaceConfiguration,
     pub surface_format: wgpu::TextureFormat,
+    pub scene_format: wgpu::TextureFormat,
     pub depth_texture: wgpu::Texture,
     pub depth_view: wgpu::TextureView,
 }
@@ -64,9 +65,12 @@ impl RenderDevice {
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps
             .formats
-            .first()
+            .iter()
             .copied()
+            .find(|f| f.is_srgb())
+            .or_else(|| surface_caps.formats.first().copied())
             .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb);
+        let scene_format = surface_format.remove_srgb_suffix();
 
         let present_mode = if surface_caps
             .present_modes
@@ -85,7 +89,11 @@ impl RenderDevice {
             present_mode,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             desired_maximum_frame_latency: 2,
-            view_formats: vec![],
+            view_formats: if scene_format == surface_format {
+                vec![]
+            } else {
+                vec![scene_format]
+            },
         };
         surface.configure(&device, &surface_config);
 
@@ -100,6 +108,7 @@ impl RenderDevice {
             surface,
             surface_config,
             surface_format,
+            scene_format,
             depth_texture,
             depth_view,
         }

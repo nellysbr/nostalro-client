@@ -20,8 +20,7 @@ use crate::effect::{EffectDrawList, EffectPrimitiveDraw};
 use crate::sprite::SpriteVertex;
 
 /// Which alpha curve the quads are drawn through. `Shaped` is the shared
-/// `pow(tex.a, 2.2)`; `GammaSpace` uses `1 - pow(1 - tex.a, 2.2)`, which makes a
-/// near-black quad blended in linear space land where a gamma-space blend does.
+/// `pow(tex.a, 2.2)`; `GammaSpace` uses the texture alpha as authored.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AlphaCurve {
     Shaped,

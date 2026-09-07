@@ -30,6 +30,12 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let tex = textureSample(ring_texture, ring_sampler, in.tex_coord);
@@ -38,5 +44,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if a < 0.002 {
         discard;
     }
-    return vec4<f32>(tex.rgb * in.color.rgb, a);
+    return vec4<f32>(linear_to_srgb(tex.rgb) * in.color.rgb, a);
 }

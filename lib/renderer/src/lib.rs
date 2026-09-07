@@ -136,6 +136,7 @@ pub struct Renderer {
     pub grid_selector: Option<GridSelectorRenderer>,
     pub sprite_renderer: SpriteRenderer,
     pub effect_sprite_renderer: SpriteRenderer,
+    pub ui_sprite_renderer: SpriteRenderer,
     pub effect_primitives: effect::EffectPrimitiveRegistry,
     pub effect_dispatcher: effect::EffectDispatcher,
     pub ui_renderer: UiRenderer,
@@ -223,7 +224,7 @@ impl Renderer {
 
         let gr2_pipeline = Gr2ModelPipeline::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &global_uniforms,
             &texture_cache,
         );
@@ -259,7 +260,7 @@ impl Renderer {
         // feet on top, ground effects at the feet occluded.
         let sprite_renderer = SpriteRenderer::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &texture_cache.bind_group_layout,
             logical_w,
             logical_h,
@@ -268,7 +269,7 @@ impl Renderer {
         );
         let effect_sprite_renderer = SpriteRenderer::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &texture_cache.bind_group_layout,
             logical_w,
             logical_h,
@@ -277,11 +278,21 @@ impl Renderer {
         );
         let effect_primitives = effect::EffectPrimitiveRegistry::new(
             &device.device,
-            device.surface_format,
+            device.scene_format,
             &global_uniforms.bind_group_layout,
             &texture_cache.bind_group_layout,
         );
         let effect_dispatcher = effect::EffectDispatcher::new(&device.device);
+
+        let ui_sprite_renderer = SpriteRenderer::new(
+            &device.device,
+            device.surface_format,
+            &texture_cache.bind_group_layout,
+            logical_w,
+            logical_h,
+            include_str!("shaders/sprite.wgsl"),
+            false,
+        );
 
         let ui_renderer = UiRenderer::new(
             &device.device,
@@ -308,6 +319,7 @@ impl Renderer {
             grid_selector: None,
             sprite_renderer,
             effect_sprite_renderer,
+            ui_sprite_renderer,
             effect_primitives,
             effect_dispatcher,
             ui_renderer,
@@ -343,6 +355,8 @@ impl Renderer {
         self.global_uniforms
             .update_light(&self.device.queue, &light);
         self.sprite_renderer
+            .set_world_light(&self.device.queue, sprite_light);
+        self.ui_sprite_renderer
             .set_world_light(&self.device.queue, sprite_light);
     }
 
@@ -519,7 +533,7 @@ impl Renderer {
             &self.device.queue,
             &self.global_uniforms,
             &mut self.texture_cache,
-            self.device.surface_format,
+            self.device.scene_format,
         );
         self.ground_renderer = Some(ground_renderer);
         let cell_lightmap = gnd.has_lightmap_data().then(|| {
@@ -545,7 +559,7 @@ impl Renderer {
             &self.device.queue,
             &self.global_uniforms,
             &mut self.texture_cache,
-            self.device.surface_format,
+            self.device.scene_format,
         );
         self.model_renderer = props.static_models;
         self.animated_model_renderer = props.animated_models;
@@ -558,7 +572,7 @@ impl Renderer {
             &self.device.queue,
             &self.global_uniforms,
             &mut self.texture_cache,
-            self.device.surface_format,
+            self.device.scene_format,
         );
 
         self.skill_unit_models.clear();
@@ -585,7 +599,7 @@ impl Renderer {
             &self.device.queue,
             &self.global_uniforms,
             &mut self.texture_cache,
-            self.device.surface_format,
+            self.device.scene_format,
             world_pos,
             scale_factor,
         ) {
@@ -732,7 +746,7 @@ impl Renderer {
         }
         let proxy = GroundProxyRenderer::new(
             &self.device.device,
-            self.device.surface_format,
+            self.device.scene_format,
             &self.global_uniforms.bind_group_layout,
         );
         proxy.initialise(&self.device.queue);
@@ -755,15 +769,27 @@ impl Renderer {
         };
 
         let view = output.texture.create_view(&Default::default());
+        let scene_view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(self.device.scene_format),
+            ..Default::default()
+        });
         let depth_view = self.device.depth_view.clone();
         let phys_w = self.device.surface_config.width;
         let phys_h = self.device.surface_config.height;
         let clear = self.clear_color;
         if self.screen_distortion.is_active() {
-            let scene_view = self
-                .screen_distortion
-                .scene_view(&self.device.device, phys_w, phys_h);
-            self.render_into(&scene_view, &depth_view, phys_w, phys_h, clear, frame);
+            let (offscreen_scene, offscreen_ui) =
+                self.screen_distortion
+                    .scene_views(&self.device.device, phys_w, phys_h);
+            self.render_into(
+                &offscreen_scene,
+                &offscreen_ui,
+                &depth_view,
+                phys_w,
+                phys_h,
+                clear,
+                frame,
+            );
             let mut encoder = self
                 .device
                 .device
@@ -772,14 +798,23 @@ impl Renderer {
                 .resolve(&mut encoder, &self.device.queue, &view);
             self.device.queue.submit(std::iter::once(encoder.finish()));
         } else {
-            self.render_into(&view, &depth_view, phys_w, phys_h, clear, frame);
+            self.render_into(
+                &scene_view,
+                &view,
+                &depth_view,
+                phys_w,
+                phys_h,
+                clear,
+                frame,
+            );
         }
         output.present();
     }
 
     pub fn render_into(
         &mut self,
-        color_view: &wgpu::TextureView,
+        scene_view: &wgpu::TextureView,
+        ui_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
         physical_w: u32,
         physical_h: u32,
@@ -810,6 +845,8 @@ impl Renderer {
             .resize(&self.device.queue, logical_w, logical_h);
         self.effect_sprite_renderer
             .resize(&self.device.queue, logical_w, logical_h);
+        self.ui_sprite_renderer
+            .resize(&self.device.queue, logical_w, logical_h);
         self.ui_renderer
             .resize(&self.device.queue, logical_w, logical_h);
 
@@ -826,7 +863,7 @@ impl Renderer {
             animated.update(&self.device.queue, delta.clamp(0.0, 0.25));
         }
 
-        let view = color_view;
+        let view = scene_view;
         let mut encoder = self
             .device
             .device
@@ -1065,7 +1102,7 @@ impl Renderer {
 
             self.ui_renderer.render(
                 &mut encoder,
-                &view,
+                ui_view,
                 &self.device.device,
                 &self.device.queue,
                 &resolved,
@@ -1100,9 +1137,9 @@ impl Renderer {
 
         if !cursor_batches.is_empty() {
             ragnarok_profiling::profile_scope!("cursor");
-            self.sprite_renderer.render(
+            self.ui_sprite_renderer.render(
                 &mut encoder,
-                &view,
+                ui_view,
                 None,
                 &self.device.device,
                 &self.device.queue,

@@ -396,7 +396,7 @@ impl App {
             let mut grid = GridSelectorRenderer::new(
                 &renderer.device.device,
                 &renderer.device.queue,
-                renderer.device.surface_format,
+                renderer.device.scene_format,
                 &renderer.global_uniforms,
                 &mut renderer.texture_cache,
                 grf,

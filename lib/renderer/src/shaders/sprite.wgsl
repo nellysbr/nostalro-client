@@ -26,6 +26,12 @@ fn eye_distance(ndc_z: f32) -> f32 {
     return (far * near) / max(far - ndc_z * (far - near), 1e-4);
 }
 
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
 fn apply_fog(color: vec3<f32>, ndc_z: f32) -> vec3<f32> {
     if (sprite.fog_enabled <= 0.0) {
         return color;
@@ -91,7 +97,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if tex.a < 0.01 || in.color.a <= 0.0 {
         discard;
     }
-    let tex_color = tex * in.color;
-    let lit = tex_color.rgb * sprite.world_light.rgb;
-    return vec4<f32>(apply_fog(lit, in.ndc_z), tex_color.a);
+    var color = linear_to_srgb(tex.rgb) * in.color.rgb * sprite.world_light.rgb;
+    color = apply_fog(clamp(color, vec3<f32>(0.0), vec3<f32>(1.0)), in.ndc_z);
+    return vec4<f32>(color, tex.a * in.color.a);
 }

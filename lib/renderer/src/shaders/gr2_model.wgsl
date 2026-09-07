@@ -33,6 +33,12 @@ struct FogUniforms {
 @group(2) @binding(0) var<uniform> instance_matrix: mat4x4<f32>;
 @group(2) @binding(1) var<storage, read> bones: array<mat4x4<f32>>;
 
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
 fn apply_fog(color: vec3<f32>, view_pos: vec3<f32>) -> vec3<f32> {
     if (fog.enabled <= 0.0) {
         return color;
@@ -116,13 +122,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let normal = normalize(in.normal);
     let n_dot_l = max(dot(normal, normalize(light.light_dir.xyz)), 0.0);
     let diffuse = light.diffuse_color.rgb * n_dot_l;
-    let lighting = diffuse + light.ambient_color.rgb;
+    let lighting = clamp(diffuse + light.ambient_color.rgb, vec3<f32>(0.0), vec3<f32>(1.0));
 
-    var color = tex_color.rgb * lighting;
+    let tex_gamma = linear_to_srgb(tex_color.rgb);
+    var color = tex_gamma * lighting;
     let pl = point_light_contribution(in.world_position, normal);
-    color += tex_color.rgb * pl;
+    color += tex_gamma * pl;
 
-    color = apply_fog(color, in.view_pos);
+    color = apply_fog(clamp(color, vec3<f32>(0.0), vec3<f32>(1.0)), in.view_pos);
 
     return vec4<f32>(color, tex_color.a);
 }

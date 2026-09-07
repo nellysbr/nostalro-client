@@ -51,6 +51,12 @@ fn cell_light_at(world_pos: vec3<f32>) -> vec3<f32> {
     return textureSample(cell_light_texture, cell_light_sampler, uv).rgb;
 }
 
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
 fn apply_fog(color: vec3<f32>, view_pos: vec3<f32>) -> vec3<f32> {
     if (fog.enabled <= 0.0) {
         return color;
@@ -132,14 +138,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let n_dot_l = max(dot(normalize(in.normal), normalize(light.light_dir.xyz)), 0.0);
     let diffuse = light.diffuse_color.rgb * n_dot_l;
-    let shaded = (diffuse + light.ambient_color.rgb) * in.lit_scale;
+    let shaded = clamp(diffuse + light.ambient_color.rgb, vec3<f32>(0.0), vec3<f32>(1.0))
+        * in.lit_scale;
     let lighting = mix(shaded, vec3<f32>(1.0), in.unlit);
 
-    var color = tex_color.rgb * (lighting + cell_light_at(in.world_position));
+    let tex_gamma = linear_to_srgb(tex_color.rgb);
+    var color = tex_gamma * (lighting + cell_light_at(in.world_position));
     let pl = point_light_contribution(in.world_position, normalize(in.normal));
-    color += tex_color.rgb * pl;
+    color += tex_gamma * pl;
 
-    color = apply_fog(color, in.view_pos);
+    color = apply_fog(clamp(color, vec3<f32>(0.0), vec3<f32>(1.0)), in.view_pos);
 
     return vec4<f32>(color, tex_color.a * in.alpha);
 }

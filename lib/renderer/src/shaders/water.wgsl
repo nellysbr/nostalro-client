@@ -43,6 +43,12 @@ struct LightUniforms {
     shadow_strength: f32,
 };
 
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
 fn apply_fog(color: vec3<f32>, view_pos: vec3<f32>) -> vec3<f32> {
     if (fog.enabled <= 0.0) {
         return color;
@@ -96,7 +102,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let tex_color = textureSample(water_texture, water_sampler, in.tex_coord);
-    let tinted = mix(tex_color.rgb, tex_color.rgb * light.ambient_color.rgb, water.ambient_tint);
-    let fogged = apply_fog(tinted, in.view_pos);
+    let tex_gamma = linear_to_srgb(tex_color.rgb);
+    let tinted = mix(tex_gamma, tex_gamma * light.ambient_color.rgb, water.ambient_tint);
+    let fogged = apply_fog(clamp(tinted, vec3<f32>(0.0), vec3<f32>(1.0)), in.view_pos);
     return vec4<f32>(fogged, water.opacity);
 }
