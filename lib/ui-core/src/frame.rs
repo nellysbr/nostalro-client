@@ -111,6 +111,7 @@ const FOCUS_STATE_ID: WidgetId = WidgetId(u32::MAX - 3);
 const POPUP_BLOCKER_STATE_ID: WidgetId = WidgetId(u32::MAX - 4);
 const WINDOW_DRAG_STATE_ID: WidgetId = WidgetId(u32::MAX - 5);
 const DRAG_THRESHOLD: f32 = 5.0;
+const SELECTION_COLOR: [f32; 4] = [0.6, 0.75, 0.95, 1.0];
 
 #[derive(Default, Clone, Copy)]
 struct WindowDragOwner(Option<WidgetId>);
@@ -780,6 +781,7 @@ impl<'a> UiFrame<'a> {
                 best_pos = i + 1;
             }
             state.cursor_pos = best_pos;
+            state.clear_selection();
         }
 
         match bg {
@@ -822,6 +824,35 @@ impl<'a> UiFrame<'a> {
         let clip_left = rect.x + padding;
         let clip_right = rect.x + rect.w - padding;
 
+        let span_y = if is_multiline {
+            text_y - self.atlas.ascent
+        } else {
+            rect.y + (rect.h - self.atlas.ascent) / 2.0
+        };
+
+        if let Some((sel_start, sel_end)) = state.selection_range() {
+            let measure_upto = |n: usize| {
+                let prefix: String = text.chars().take(n).collect();
+                self.atlas.measure_text(&prefix)
+            };
+            let x0 = (text_x + measure_upto(sel_start)).clamp(clip_left, clip_right);
+            let x1 = (text_x + measure_upto(sel_end)).clamp(clip_left, clip_right);
+            if x1 > x0 {
+                let (v, i) = draw::quad_vertices(
+                    x0,
+                    span_y,
+                    x1 - x0,
+                    self.atlas.ascent,
+                    SELECTION_COLOR,
+                );
+                self.draw_calls.push(DrawCall {
+                    vertices: v.to_vec(),
+                    indices: i.to_vec(),
+                    texture: TextureRef::White,
+                });
+            }
+        }
+
         if !text.is_empty() {
             let text_color = [0.0, 0.0, 0.0, 1.0];
             let (verts, indices) = draw::text_vertices_clipped(
@@ -838,14 +869,9 @@ impl<'a> UiFrame<'a> {
 
         if response.has_focus && (self.elapsed_secs % 1.0) < 0.5 {
             let cursor_x = (text_x + cursor_px).clamp(clip_left, clip_right);
-            let caret_y = if is_multiline {
-                text_y - self.atlas.ascent
-            } else {
-                rect.y + (rect.h - self.atlas.ascent) / 2.0
-            };
             let caret_color = [0.0, 0.0, 0.0, 1.0];
             let (v, i) =
-                draw::quad_vertices(cursor_x, caret_y, 1.0, self.atlas.ascent, caret_color);
+                draw::quad_vertices(cursor_x, span_y, 1.0, self.atlas.ascent, caret_color);
             self.draw_calls.push(DrawCall {
                 vertices: v.to_vec(),
                 indices: i.to_vec(),

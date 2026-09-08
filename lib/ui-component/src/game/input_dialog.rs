@@ -60,7 +60,7 @@ impl InputDialog {
         let mut input =
             TextInput::new(config.max_len, false).with_numeric_only(config.numeric_only);
         input.text = config.default_value;
-        input.cursor_pos = input.text.chars().count();
+        input.select_all();
         Self {
             has_grf_textures: false,
             input,
@@ -84,12 +84,13 @@ impl InputDialog {
 
     pub fn set_input_text(&mut self, text: &str) {
         self.input.text = text.to_string();
-        self.input.cursor_pos = text.chars().count();
+        self.input.select_all();
     }
 
     pub fn clear_input(&mut self) {
         self.input.text.clear();
         self.input.cursor_pos = 0;
+        self.input.clear_selection();
     }
 
     pub fn value_i16(&self) -> Option<i16> {
@@ -278,6 +279,21 @@ mod tests {
         assert_eq!(dialog.value_str(), "42");
         assert_eq!(dialog.value_i16(), Some(42));
         assert_eq!(dialog.value_i32(), Some(42));
+    }
+
+    #[test]
+    fn typing_replaces_prefilled_value() {
+        let mut dialog = make_dialog("42", true);
+        let mut state = StateCache::new();
+        let mut ctx = UiContext::new(800.0, 600.0);
+        {
+            let mut ui = test_frame(&mut ctx, &mut state);
+            dialog.build(&mut ui);
+        }
+        ctx.typed_chars = vec!['7'];
+        let mut ui = test_frame(&mut ctx, &mut state);
+        dialog.build(&mut ui);
+        assert_eq!(dialog.value_str(), "7");
     }
 
     #[test]

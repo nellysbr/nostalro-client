@@ -6,6 +6,7 @@ pub struct TextInput {
     pub max_len: usize,
     pub is_password: bool,
     pub numeric_only: bool,
+    pub selection_anchor: Option<usize>,
 }
 
 impl TextInput {
@@ -16,6 +17,7 @@ impl TextInput {
             max_len,
             is_password,
             numeric_only: false,
+            selection_anchor: None,
         }
     }
 
@@ -24,11 +26,40 @@ impl TextInput {
         self
     }
 
+    pub fn select_all(&mut self) {
+        self.selection_anchor = Some(0);
+        self.cursor_pos = self.char_count();
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selection_anchor = None;
+    }
+
+    pub fn selection_range(&self) -> Option<(usize, usize)> {
+        let anchor = self.selection_anchor?;
+        let count = self.char_count();
+        let start = anchor.min(self.cursor_pos).min(count);
+        let end = anchor.max(self.cursor_pos).min(count);
+        (start != end).then_some((start, end))
+    }
+
+    fn delete_selection(&mut self) {
+        let Some((start, end)) = self.selection_range() else {
+            self.selection_anchor = None;
+            return;
+        };
+        let (from, to) = (self.byte_offset(start), self.byte_offset(end));
+        self.text.replace_range(from..to, "");
+        self.cursor_pos = start;
+        self.selection_anchor = None;
+    }
+
     pub fn process_keys(&mut self, ctx: &UiContext) {
         for &ch in &ctx.typed_chars {
             if self.numeric_only && !ch.is_ascii_digit() {
                 continue;
             }
+            self.delete_selection();
             if self.text.len() < self.max_len {
                 let byte_pos = self.byte_offset(self.cursor_pos);
                 self.text.insert(byte_pos, ch);
@@ -36,23 +67,41 @@ impl TextInput {
             }
         }
 
-        if ctx.key_backspace && self.cursor_pos > 0 {
-            self.cursor_pos -= 1;
-            let byte_pos = self.byte_offset(self.cursor_pos);
-            self.text.remove(byte_pos);
+        if ctx.key_backspace {
+            if self.selection_range().is_some() {
+                self.delete_selection();
+            } else if self.cursor_pos > 0 {
+                self.cursor_pos -= 1;
+                let byte_pos = self.byte_offset(self.cursor_pos);
+                self.text.remove(byte_pos);
+            }
         }
 
-        if ctx.key_delete && self.cursor_pos < self.char_count() {
-            let byte_pos = self.byte_offset(self.cursor_pos);
-            self.text.remove(byte_pos);
+        if ctx.key_delete {
+            if self.selection_range().is_some() {
+                self.delete_selection();
+            } else if self.cursor_pos < self.char_count() {
+                let byte_pos = self.byte_offset(self.cursor_pos);
+                self.text.remove(byte_pos);
+            }
         }
 
-        if ctx.key_left && self.cursor_pos > 0 {
-            self.cursor_pos -= 1;
+        if ctx.key_left {
+            if let Some((start, _)) = self.selection_range() {
+                self.cursor_pos = start;
+                self.selection_anchor = None;
+            } else if self.cursor_pos > 0 {
+                self.cursor_pos -= 1;
+            }
         }
 
-        if ctx.key_right && self.cursor_pos < self.char_count() {
-            self.cursor_pos += 1;
+        if ctx.key_right {
+            if let Some((_, end)) = self.selection_range() {
+                self.cursor_pos = end;
+                self.selection_anchor = None;
+            } else if self.cursor_pos < self.char_count() {
+                self.cursor_pos += 1;
+            }
         }
     }
 
@@ -182,6 +231,47 @@ mod tests {
         ctx.key_right = true;
         input.process_keys(&ctx);
         assert_eq!(input.cursor_pos, 2);
+    }
+
+    #[test]
+    fn typing_replaces_selected_text() {
+        let mut input = TextInput::new(6, false).with_numeric_only(true);
+        input.text = "42".to_string();
+        input.select_all();
+
+        let mut ctx = make_ctx();
+        ctx.typed_chars = vec!['7', '5'];
+        input.process_keys(&ctx);
+        assert_eq!(input.text, "75");
+        assert_eq!(input.cursor_pos, 2);
+        assert_eq!(input.selection_range(), None);
+    }
+
+    #[test]
+    fn backspace_deletes_whole_selection() {
+        let mut input = TextInput::new(6, false);
+        input.text = "42".to_string();
+        input.select_all();
+
+        let mut ctx = make_ctx();
+        ctx.key_backspace = true;
+        input.process_keys(&ctx);
+        assert_eq!(input.text, "");
+        assert_eq!(input.cursor_pos, 0);
+    }
+
+    #[test]
+    fn left_arrow_collapses_selection_without_deleting() {
+        let mut input = TextInput::new(6, false);
+        input.text = "42".to_string();
+        input.select_all();
+
+        let mut ctx = make_ctx();
+        ctx.key_left = true;
+        input.process_keys(&ctx);
+        assert_eq!(input.text, "42");
+        assert_eq!(input.cursor_pos, 0);
+        assert_eq!(input.selection_range(), None);
     }
 
     #[test]
