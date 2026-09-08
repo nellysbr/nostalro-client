@@ -438,6 +438,7 @@ impl InGameWindow for NpcDialog {
                         default_value: String::new(),
                         max_len: 10,
                         numeric_only: true,
+                        max_value: None,
                     },
                     WidgetId(INPUT_ID.0),
                 );

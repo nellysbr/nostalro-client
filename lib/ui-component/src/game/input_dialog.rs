@@ -37,6 +37,7 @@ pub struct InputDialogConfig {
     pub default_value: String,
     pub max_len: usize,
     pub numeric_only: bool,
+    pub max_value: Option<i32>,
 }
 
 pub struct InputDialog {
@@ -46,6 +47,7 @@ pub struct InputDialog {
     show_cancel: bool,
     escape_cancels: bool,
     label: Option<String>,
+    max_value: Option<i32>,
     base_id: WidgetId,
     container: DialogContainer,
 }
@@ -68,6 +70,7 @@ impl InputDialog {
             show_cancel: config.show_cancel,
             escape_cancels: config.escape_cancels,
             label: config.label,
+            max_value: config.max_value,
             base_id,
             container: DialogContainer::new(),
         }
@@ -116,6 +119,15 @@ impl InputDialog {
     }
     fn cancel_id(&self) -> WidgetId {
         WidgetId(self.base_id.0 + OFFSET_CANCEL)
+    }
+
+    fn clamp_to_max(&mut self) {
+        let Some(max) = self.max_value else {
+            return;
+        };
+        if self.input.text.parse::<i32>().is_ok_and(|value| value > max) {
+            self.set_input_text(&max.to_string());
+        }
     }
 
     pub fn build(&mut self, ui: &mut UiFrame) -> InputDialogResult {
@@ -184,6 +196,7 @@ impl InputDialog {
         }
 
         if ok.clicked() || ui.ctx.key_enter {
+            self.clamp_to_max();
             return InputDialogResult::Submitted;
         }
 
@@ -237,6 +250,7 @@ mod tests {
                 default_value: default_value.to_string(),
                 max_len: 6,
                 numeric_only: true,
+                max_value: Some(50),
             },
             WidgetId(900),
         )
@@ -294,6 +308,17 @@ mod tests {
         let mut ui = test_frame(&mut ctx, &mut state);
         dialog.build(&mut ui);
         assert_eq!(dialog.value_str(), "7");
+    }
+
+    #[test]
+    fn submitting_over_max_clamps_to_max() {
+        let mut dialog = make_dialog("999", true);
+        let mut state = StateCache::new();
+        let mut ctx = UiContext::new(800.0, 600.0);
+        ctx.key_enter = true;
+        let mut ui = test_frame(&mut ctx, &mut state);
+        assert_eq!(dialog.build(&mut ui), InputDialogResult::Submitted);
+        assert_eq!(dialog.value_i16(), Some(50));
     }
 
     #[test]

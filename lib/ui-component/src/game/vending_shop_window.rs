@@ -384,6 +384,7 @@ impl VendingShopWindow {
                         default_value: stock.to_string(),
                         max_len: 6,
                         numeric_only: true,
+                        max_value: Some(stock as i32),
                     },
                     WidgetId(NUM_DIALOG_BASE),
                 );

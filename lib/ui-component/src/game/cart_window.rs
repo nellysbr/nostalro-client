@@ -78,6 +78,7 @@ impl CartWindow {
                 default_value: max.to_string(),
                 max_len: 6,
                 numeric_only: true,
+                max_value: Some(max as i32),
             },
             WidgetId(NUM_DIALOG_BASE),
         );

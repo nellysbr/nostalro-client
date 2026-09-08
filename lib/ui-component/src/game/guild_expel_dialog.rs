@@ -23,6 +23,7 @@ impl GuildExpelDialog {
             default_value: String::new(),
             max_len: REASON_MAX_LEN,
             numeric_only: false,
+            max_value: None,
         };
         Self {
             aid,

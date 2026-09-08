@@ -519,6 +519,7 @@ impl MailboxWindow {
                             default_value: count.to_string(),
                             max_len: 6,
                             numeric_only: true,
+                            max_value: Some(count as i32),
                         },
                         AMOUNT_DIALOG_ID,
                     );

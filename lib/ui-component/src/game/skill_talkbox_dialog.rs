@@ -24,6 +24,7 @@ impl SkillTalkboxDialog {
             default_value: String::new(),
             max_len: TALKBOX_MESSAGE_MAX_LEN,
             numeric_only: false,
+            max_value: None,
         };
         Self {
             skill,

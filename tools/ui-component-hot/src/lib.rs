@@ -801,6 +801,7 @@ fn create_single(name: &str) -> State {
                     default_value: "99".to_string(),
                     max_len: 6,
                     numeric_only: true,
+                    max_value: Some(99),
                 },
                 WidgetId(950),
             ),

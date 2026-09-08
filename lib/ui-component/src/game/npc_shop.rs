@@ -695,13 +695,15 @@ impl NpcShop {
     fn open_qty_popup(&mut self, item_idx: usize, name: &str) {
         let price = self.shop.item_price(item_idx);
         let label = format!("{} ({}z)", name, format_thousands(price as i64));
-        let default_qty = match self.shop.mode {
-            Some(NpcShopMode::Sell) => match self.shop.sell_item_remaining(item_idx) {
-                remaining if remaining > 0 => remaining.to_string(),
-                _ => String::new(),
-            },
-            _ => String::new(),
+        let sell_remaining = match self.shop.mode {
+            Some(NpcShopMode::Sell) => {
+                Some(self.shop.sell_item_remaining(item_idx)).filter(|remaining| *remaining > 0)
+            }
+            _ => None,
         };
+        let default_qty = sell_remaining
+            .map(|remaining| remaining.to_string())
+            .unwrap_or_default();
         let mut dialog = InputDialog::new(
             InputDialogConfig {
                 label: Some(label),
@@ -710,6 +712,7 @@ impl NpcShop {
                 default_value: default_qty,
                 max_len: 6,
                 numeric_only: true,
+                max_value: sell_remaining.map(|remaining| remaining as i32),
             },
             WidgetId(QTY_INPUT_ID.0),
         );

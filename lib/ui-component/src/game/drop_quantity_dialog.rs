@@ -19,6 +19,7 @@ impl DropQuantityDialog {
             default_value: max_count.to_string(),
             max_len: 6,
             numeric_only: true,
+            max_value: Some(max_count as i32),
         };
         Self {
             item_index,
@@ -49,7 +50,7 @@ impl InGameWindow for DropQuantityDialog {
         match self.inner.build(ui) {
             InputDialogResult::Submitted => {
                 let qty: i16 = self.inner.value_i16().unwrap_or(0);
-                if qty > 0 && qty <= self.max_count {
+                if qty > 0 {
                     vec![GameEvent::RequestDropItem {
                         index: self.item_index,
                         count: qty,
@@ -132,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn enter_key_cancels_with_over_max() {
+    fn enter_key_clamps_over_max_to_max() {
         let mut dialog = DropQuantityDialog::new(0, 10);
         dialog.inner.set_input_text("11");
         let mut state = StateCache::new();
@@ -140,7 +141,13 @@ mod tests {
         ctx.key_enter = true;
         let events = build_dialog(&mut dialog, &mut ctx, &mut state);
         assert_eq!(events.len(), 1);
-        assert!(matches!(events[0], GameEvent::DialogClosed));
+        assert!(matches!(
+            events[0],
+            GameEvent::RequestDropItem {
+                index: 0,
+                count: 10
+            }
+        ));
     }
 
     #[test]
