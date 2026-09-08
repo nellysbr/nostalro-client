@@ -34,6 +34,8 @@ pub(crate) const HP_BAR_HEIGHT: f32 = 5.0;
 const SP_BAR_COLOR: [f32; 4] = [0.063, 0.094, 0.61, 1.0];
 const CAST_BAR_COLOR: [f32; 4] = [0.0, 0.8, 0.0, 1.0];
 const GUILD_NAME_COLOR: [f32; 4] = [0.8, 1.0, 0.753, 1.0];
+const NPC_NAME_COLOR: [f32; 4] = [0.584, 0.722, 0.969, 1.0];
+const MONSTER_NAME_COLOR: [f32; 4] = [1.0, 0.765, 0.765, 1.0];
 const MOB_INFO_COLOR: [f32; 4] = [0.9, 0.9, 0.9, 1.0];
 const EMBLEM_HOVER_SIZE: f32 = 24.0;
 const EMBLEM_HEAD_SIZE: f32 = 24.0;
@@ -814,8 +816,8 @@ fn entity_name_color(entity: &Entity) -> [f32; 4] {
     }
     match entity.entity_type {
         EntityType::Player | EntityType::Homunculus | EntityType::Mercenary => [1.0, 1.0, 1.0, 1.0],
-        EntityType::Monster => [1.0, 0.776, 0.776, 1.0],
-        EntityType::Npc => [0.39, 0.54, 0.76, 1.0],
+        EntityType::Monster => MONSTER_NAME_COLOR,
+        EntityType::Npc => NPC_NAME_COLOR,
     }
 }
 
@@ -1018,6 +1020,10 @@ mod tests {
         )
     }
 
+    fn npc() -> Entity {
+        Entity::new(3, EntityType::Npc, 46, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 150)
+    }
+
     #[test]
     fn monster_keeps_its_bar_off_hover_once_the_server_reports_hp() {
         let mut mob = monster();
@@ -1069,12 +1075,15 @@ mod tests {
     }
 
     #[test]
-    fn gm_name_is_yellow_but_pk_state_wins() {
+    fn name_color_per_type_with_gm_and_pk_overrides() {
         let mut e = player();
         assert_eq!(entity_name_color(&e), [1.0, 1.0, 1.0, 1.0]);
         e.is_gm = true;
         assert_eq!(entity_name_color(&e), GM_TEXT_COLOR);
         e.effect_state = EFFECT_STATE_RED_NAME;
         assert_eq!(entity_name_color(&e), [1.0, 0.0, 0.0, 1.0]);
+
+        assert_eq!(entity_name_color(&npc()), NPC_NAME_COLOR);
+        assert_eq!(entity_name_color(&monster()), MONSTER_NAME_COLOR);
     }
 }
