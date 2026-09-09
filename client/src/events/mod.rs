@@ -411,11 +411,6 @@ impl App {
                 GameEvent::NpcDialogClose { npc_id } => {
                     if self.windows.npc_dialog.dialog.has_text() {
                         self.windows.npc_dialog.dialog.wait_for_close(npc_id);
-                    } else {
-                        self.windows.npc_dialog.dialog.close();
-                        self.game.npc_cutins = [None, None, None];
-                        self.channel
-                            .send_packet(build_npc_close_packet(npc_id, self.active_packetver));
                     }
                 }
                 GameEvent::NpcDialogMenu { npc_id, items } => {
