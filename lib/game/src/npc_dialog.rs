@@ -2,8 +2,6 @@
 pub enum NpcDialogState {
     Idle,
     DisplayingText,
-    WaitingForNext,
-    WaitingForClose,
     WaitingForMenu,
     WaitingForNumberInput,
     WaitingForStringInput,
@@ -15,6 +13,8 @@ pub struct NpcDialogData {
     pub state: NpcDialogState,
     pub npc_id: u32,
     pub text: String,
+    pub next_button: bool,
+    pub close_button: bool,
     pub menu_items: Vec<String>,
     pub selected_menu_index: usize,
     pub menu_scroll_offset: usize,
@@ -32,6 +32,8 @@ impl NpcDialogData {
             state: NpcDialogState::Idle,
             npc_id: 0,
             text: String::new(),
+            next_button: false,
+            close_button: false,
             menu_items: Vec::new(),
             selected_menu_index: 0,
             menu_scroll_offset: 0,
@@ -60,12 +62,14 @@ impl NpcDialogData {
 
     pub fn wait_for_next(&mut self, npc_id: u32) {
         self.npc_id = npc_id;
-        self.state = NpcDialogState::WaitingForNext;
+        if self.state == NpcDialogState::Idle {
+            self.state = NpcDialogState::DisplayingText;
+        }
+        self.next_button = true;
     }
 
-    pub fn wait_for_close(&mut self, npc_id: u32) {
-        self.npc_id = npc_id;
-        self.state = NpcDialogState::WaitingForClose;
+    pub fn wait_for_close(&mut self) {
+        self.close_button = true;
     }
 
     pub fn show_menu(&mut self, npc_id: u32, items: Vec<String>) {
@@ -93,6 +97,8 @@ impl NpcDialogData {
 
     pub fn advance_next(&mut self) {
         self.text.clear();
+        self.next_button = false;
+        self.close_button = false;
         self.state = NpcDialogState::DisplayingText;
     }
 
@@ -100,6 +106,8 @@ impl NpcDialogData {
         self.state = NpcDialogState::Idle;
         self.npc_id = 0;
         self.text.clear();
+        self.next_button = false;
+        self.close_button = false;
         self.menu_items.clear();
         self.selected_menu_index = 0;
         self.menu_scroll_offset = 0;
@@ -121,11 +129,12 @@ mod tests {
         assert_eq!(dialog.text, "Hello adventurer!");
 
         dialog.wait_for_next(100);
-        assert_eq!(dialog.state, NpcDialogState::WaitingForNext);
+        assert!(dialog.next_button);
 
         dialog.advance_next();
         assert_eq!(dialog.state, NpcDialogState::DisplayingText);
         assert!(dialog.text.is_empty());
+        assert!(!dialog.next_button);
 
         dialog.open_text(100, "Choose wisely.");
         assert_eq!(dialog.text, "Choose wisely.");
@@ -134,11 +143,39 @@ mod tests {
         assert_eq!(dialog.state, NpcDialogState::WaitingForMenu);
         assert_eq!(dialog.menu_items.len(), 3);
 
-        dialog.wait_for_close(100);
-        assert_eq!(dialog.state, NpcDialogState::WaitingForClose);
+        dialog.wait_for_close();
+        assert!(dialog.close_button);
 
         dialog.close();
         assert!(!dialog.is_open());
+        assert!(!dialog.close_button);
+    }
+
+    #[test]
+    fn background_close_keeps_next_button_and_npc_id() {
+        let mut dialog = NpcDialogData::new();
+        dialog.open_text(100, "Take this quest?");
+        dialog.wait_for_next(100);
+
+        dialog.wait_for_close();
+
+        assert!(dialog.next_button);
+        assert!(dialog.close_button);
+        assert_eq!(dialog.npc_id, 100);
+    }
+
+    #[test]
+    fn next_reopens_a_dialog_dismissed_by_a_menu_pick() {
+        let mut dialog = NpcDialogData::new();
+        dialog.open_text(100, "Choose:");
+        dialog.show_menu(100, vec!["Yes".into(), "No".into()]);
+        dialog.close();
+
+        dialog.wait_for_next(100);
+
+        assert!(dialog.is_open());
+        assert!(dialog.next_button);
+        assert_eq!(dialog.npc_id, 100);
     }
 
     #[test]

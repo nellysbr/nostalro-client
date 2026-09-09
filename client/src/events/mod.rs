@@ -408,9 +408,9 @@ impl App {
                 GameEvent::NpcDialogNext { npc_id } => {
                     self.windows.npc_dialog.dialog.wait_for_next(npc_id);
                 }
-                GameEvent::NpcDialogClose { npc_id } => {
-                    if self.windows.npc_dialog.dialog.has_text() {
-                        self.windows.npc_dialog.dialog.wait_for_close(npc_id);
+                GameEvent::NpcDialogClose { .. } => {
+                    if self.windows.npc_dialog.dialog.is_open() {
+                        self.windows.npc_dialog.dialog.wait_for_close();
                     }
                 }
                 GameEvent::NpcDialogMenu { npc_id, items } => {

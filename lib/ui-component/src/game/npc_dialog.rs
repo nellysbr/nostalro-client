@@ -187,11 +187,11 @@ impl InGameWindow for NpcDialog {
 
     fn on_escape(&mut self, _ctx: &mut BuildCtx) -> Vec<GameEvent> {
         let npc_id = self.dialog.npc_id;
+        if self.dialog.close_button {
+            self.dialog.close();
+            return vec![GameEvent::RequestNpcClose { npc_id }];
+        }
         match self.dialog.state {
-            NpcDialogState::WaitingForClose => {
-                self.dialog.close();
-                vec![GameEvent::RequestNpcClose { npc_id }]
-            }
             NpcDialogState::WaitingForMenu => {
                 self.dialog.close();
                 vec![GameEvent::RequestNpcMenuSelect {
@@ -217,25 +217,22 @@ impl InGameWindow for NpcDialog {
         let mut events = Vec::new();
         let state = self.dialog.state;
 
+        if ui.ctx.key_enter && self.dialog.next_button {
+            events.push(GameEvent::RequestNpcNext {
+                npc_id: self.dialog.npc_id,
+            });
+            self.dialog.advance_next();
+            return events;
+        }
+        if ui.ctx.key_enter && self.dialog.close_button {
+            events.push(GameEvent::RequestNpcClose {
+                npc_id: self.dialog.npc_id,
+            });
+            self.dialog.close();
+            return events;
+        }
+
         match state {
-            NpcDialogState::WaitingForNext => {
-                if ui.ctx.key_enter {
-                    events.push(GameEvent::RequestNpcNext {
-                        npc_id: self.dialog.npc_id,
-                    });
-                    self.dialog.advance_next();
-                    return events;
-                }
-            }
-            NpcDialogState::WaitingForClose => {
-                if ui.ctx.key_enter {
-                    events.push(GameEvent::RequestNpcClose {
-                        npc_id: self.dialog.npc_id,
-                    });
-                    self.dialog.close();
-                    return events;
-                }
-            }
             NpcDialogState::WaitingForMenu => {
                 let total_items = self.dialog.menu_items.len();
                 if ui.ctx.key_up && self.dialog.selected_menu_index > 0 {
@@ -320,12 +317,9 @@ impl InGameWindow for NpcDialog {
             };
 
             let (btn_w, btn_h) = self.btn_size;
-            let has_button = matches!(
-                state,
-                NpcDialogState::WaitingForNext
-                    | NpcDialogState::WaitingForClose
-                    | NpcDialogState::WaitingForStringInput
-            );
+            let has_button = self.dialog.next_button
+                || self.dialog.close_button
+                || state == NpcDialogState::WaitingForStringInput;
             let btn_area_h = if has_button { btn_h + padding } else { 0.0 };
 
             let dialog_h = (padding + text_h + input_h + btn_area_h + padding).max(DIALOG_H);
@@ -391,7 +385,7 @@ impl InGameWindow for NpcDialog {
 
             let dialog_rect = Rect::new(dx, dy, dialog_w, dialog_h);
             let btns = dialog_rect.buttons_bottom_right(
-                1,
+                2,
                 btn_w,
                 btn_h,
                 BTN_BOTTOM,
@@ -399,11 +393,13 @@ impl InGameWindow for NpcDialog {
                 BTN_SPACING,
             );
 
-            if has_button {
-                cancel_drag_on_press(ui, NPC_DIALOG_WINDOW_ID, &btns);
+            let shown =
+                usize::from(self.dialog.next_button) + usize::from(self.dialog.close_button);
+            if shown > 0 {
+                cancel_drag_on_press(ui, NPC_DIALOG_WINDOW_ID, &btns[..shown]);
             }
 
-            if state == NpcDialogState::WaitingForNext {
+            if self.dialog.next_button {
                 let response = ui.button(NEXT_BTN_ID, btns[0], &NEXT_BTN, "Next");
                 if response.clicked() {
                     events.push(GameEvent::RequestNpcNext {
@@ -412,8 +408,13 @@ impl InGameWindow for NpcDialog {
                     self.dialog.advance_next();
                 }
             }
-            if state == NpcDialogState::WaitingForClose {
-                let response = ui.button(CLOSE_BTN_ID, btns[0], &CLOSE_BTN, "Close");
+            if self.dialog.close_button {
+                let slot = if self.dialog.next_button {
+                    btns[1]
+                } else {
+                    btns[0]
+                };
+                let response = ui.button(CLOSE_BTN_ID, slot, &CLOSE_BTN, "Close");
                 if response.clicked() {
                     events.push(GameEvent::RequestNpcClose {
                         npc_id: self.dialog.npc_id,
