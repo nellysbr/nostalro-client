@@ -1343,11 +1343,6 @@ pub fn build_entity_sprite(
     }
 }
 
-const MIN_PICK_SIZE: f32 = 40.0;
-const MAX_PICK_WIDTH: f32 = 200.0;
-const MAX_PICK_HEIGHT: f32 = 250.0;
-const PICK_BOTTOM_MARGIN: f32 = 10.0;
-
 impl EntitySprite {
     pub fn compute_pick_bounds(
         &self,
@@ -1357,6 +1352,7 @@ impl EntitySprite {
         screen_anchor: [f32; 2],
         depth: f32,
         scale: f32,
+        screen_w: f32,
     ) -> [f32; 4] {
         let action_idx = match camera_dir {
             Some(dir) => animation.action_index(&self.body_act, dir),
@@ -1376,16 +1372,7 @@ impl EntitySprite {
         let mut has_vertices = false;
 
         if let Some(clips) = clips {
-            let all_groups: [&Vec<ClipQuad>; 7] = [
-                &clips.body,
-                &clips.head,
-                &clips.headgear_bottom,
-                &clips.headgear_mid,
-                &clips.headgear_top,
-                &clips.weapon,
-                &clips.shield,
-            ];
-            for group in all_groups {
+            for group in [&clips.body, &clips.head] {
                 for (vertices, _, _) in group {
                     for v in vertices {
                         let sx = screen_anchor[0] + (v.position[0] - screen_anchor[0]) * scale;
@@ -1410,17 +1397,11 @@ impl EntitySprite {
             ];
         }
 
-        let raw_w = (max_x - min_x).max(MIN_PICK_SIZE * scale);
-        let raw_h = (max_y - min_y).max(MIN_PICK_SIZE * scale);
-        let w = raw_w.min(MAX_PICK_WIDTH * scale);
-        let h = raw_h.min(MAX_PICK_HEIGHT * scale);
-        let bottom = max_y.min(screen_anchor[1] + PICK_BOTTOM_MARGIN);
-        [
-            screen_anchor[0] - w / 2.0,
-            bottom - h,
-            screen_anchor[0] + w / 2.0,
-            bottom,
-        ]
+        crate::sprite_projection::pick_bounds_from_drawn(
+            [min_x, min_y, max_x, max_y],
+            screen_anchor,
+            screen_w,
+        )
     }
 
     pub fn compute_head_offset(

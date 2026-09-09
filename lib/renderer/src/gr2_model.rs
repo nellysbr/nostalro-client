@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use ragnarok_formats::gr2::Gr2File;
 
+use crate::Camera;
 use crate::device::DEPTH_FORMAT;
 use crate::global_uniforms::GlobalUniforms;
 use crate::texture::{TextureCache, create_texture_bind_group_from_rgba};
@@ -279,6 +280,8 @@ pub struct Gr2ModelAsset {
     textures: Vec<wgpu::BindGroup>,
     bone_count: usize,
     emblem_texture_index: Option<usize>,
+    /// Kept CPU-side so picking can bound the posed geometry.
+    vertices: Vec<Gr2ModelVertex>,
     /// Bind-pose bounding-box center/size in model space (before the instance
     /// transform), for camera framing.
     pub center: [f32; 3],
@@ -368,11 +371,48 @@ impl Gr2ModelAsset {
             emblem_texture_index,
             center: geometry.center,
             size: geometry.size,
+            vertices: geometry.vertices,
         })
     }
 
     pub fn bone_count(&self) -> usize {
         self.bone_count
+    }
+
+    pub fn project_screen_bounds(
+        &self,
+        transform: glam::Mat4,
+        palette: &[glam::Mat4],
+        camera: &Camera,
+        screen_w: f32,
+        screen_h: f32,
+    ) -> Option<[f32; 4]> {
+        let mut min = [f32::INFINITY; 2];
+        let mut max = [f32::NEG_INFINITY; 2];
+        for v in &self.vertices {
+            // The weighted matrix sum the vertex shader builds.
+            let mut skin = glam::Mat4::ZERO;
+            for slot in 0..4 {
+                let weight = v.bone_weights[slot] as f32 / 255.0;
+                if weight == 0.0 {
+                    continue;
+                }
+                if let Some(bone) = palette.get(v.bone_indices[slot] as usize) {
+                    skin += *bone * weight;
+                }
+            }
+            let world = transform.transform_point3(skin.transform_point3(v.position.into()));
+            let Some((sx, sy, _, _)) =
+                camera.world_to_screen_with_depth(world.x, world.y, world.z, screen_w, screen_h)
+            else {
+                continue;
+            };
+            min[0] = min[0].min(sx);
+            min[1] = min[1].min(sy);
+            max[0] = max[0].max(sx);
+            max[1] = max[1].max(sy);
+        }
+        (min[0] <= max[0]).then_some([min[0], min[1], max[0], max[1]])
     }
 }
 

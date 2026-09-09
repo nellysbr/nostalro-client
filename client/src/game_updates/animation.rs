@@ -246,17 +246,14 @@ impl App {
             let Some(model) = renderer.gr2_models.get(gid) else {
                 continue;
             };
-            let (cx, cy) = entity.movement.position();
-            let (wx, _, wz) = coords.cell_to_world(cx + 0.5, cy + 0.5);
-            let wy = gat.get_height(cx + 0.5, cy + 0.5);
-            // The trailing X rotation stands the Z-up model upright (world up
-            // is negative Y).
-            let yaw = gr2_model::model_facing_yaw(entity.direction);
-            let transform = glam::Mat4::from_translation(glam::Vec3::new(wx, wy, wz))
-                * glam::Mat4::from_rotation_y(yaw)
-                * glam::Mat4::from_rotation_x(std::f32::consts::FRAC_PI_2);
+            let transform = gr2_model::model_world_transform(
+                entity.movement.position(),
+                Some(gat),
+                coords,
+                entity.direction,
+            );
             model.set_transform(queue, transform);
-            model.set_palette(queue, &instance.skinning_palette(elapsed));
+            model.set_palette(queue, instance.pose(elapsed));
         }
     }
 

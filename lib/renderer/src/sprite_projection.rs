@@ -220,6 +220,34 @@ pub fn project_effect_billboard(
     Some(([sx, sy], ndc_z, ppu, grad))
 }
 
+/// Smallest and largest pick box an actor gets, in screen pixels. The ceilings
+/// are flat: the drawn union already carries the sprite's zoom, so scaling them
+/// by that zoom too would let the box grow without limit. The floor instead
+/// tracks the window, at the reference width the damage numbers also use.
+pub const MIN_PICK_SIZE: f32 = 40.0;
+pub const MAX_PICK_WIDTH: f32 = 200.0;
+pub const MAX_PICK_HEIGHT: f32 = 250.0;
+const PICK_FLOOR_REFERENCE_WIDTH: f32 = 640.0;
+const PICK_BOTTOM_MARGIN: f32 = 10.0;
+
+/// Turn the screen union of what an actor drew this frame into its pick box:
+/// floor and cap the size, then centre it on the anchor and hang it from the
+/// anchor's feet. Only the size of `drawn` survives, so a silhouette that
+/// reaches off to one side does not drag the box with it.
+pub fn pick_bounds_from_drawn(drawn: [f32; 4], screen_anchor: [f32; 2], screen_w: f32) -> [f32; 4] {
+    let [min_x, min_y, max_x, max_y] = drawn;
+    let floor = MIN_PICK_SIZE * screen_w / PICK_FLOOR_REFERENCE_WIDTH;
+    let w = (max_x - min_x).max(floor).min(MAX_PICK_WIDTH);
+    let h = (max_y - min_y).max(floor).min(MAX_PICK_HEIGHT);
+    let bottom = max_y.min(screen_anchor[1] + PICK_BOTTOM_MARGIN);
+    [
+        screen_anchor[0] - w / 2.0,
+        bottom - h,
+        screen_anchor[0] + w / 2.0,
+        bottom,
+    ]
+}
+
 pub fn entity_ground_gradient(
     pos: (f32, f32),
     gat: Option<&GatFile>,
@@ -292,6 +320,30 @@ mod tests {
             result.expect("character should be visible at camera target");
         assert!((anchor[0] - 400.0).abs() < 30.0, "anchor.x = {}", anchor[0]);
         assert!(scale > 0.0, "scale should be positive");
+    }
+
+    #[test]
+    fn pick_box_stays_on_the_anchor_and_within_the_cap() {
+        let anchor = [400.0, 300.0];
+
+        // A guardian mid-swing: the weapon drags the drawn union far to one side
+        // and past the ceiling, which does not grow with the sprite's zoom.
+        let bounds = pick_bounds_from_drawn([120.0, 20.0, 480.0, 305.0], anchor, 1024.0);
+        assert_eq!(
+            bounds,
+            [
+                anchor[0] - MAX_PICK_WIDTH / 2.0,
+                305.0 - MAX_PICK_HEIGHT,
+                anchor[0] + MAX_PICK_WIDTH / 2.0,
+                305.0,
+            ],
+        );
+
+        // A tiny union is floored, and the floor tracks the window width.
+        let small = pick_bounds_from_drawn([395.0, 295.0, 405.0, 300.0], anchor, 1280.0);
+        assert_eq!(small[2] - small[0], MIN_PICK_SIZE * 2.0);
+        assert_eq!(small[3] - small[1], MIN_PICK_SIZE * 2.0);
+        assert_eq!(small[3], anchor[1]);
     }
 
     #[test]

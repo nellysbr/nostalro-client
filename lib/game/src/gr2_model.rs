@@ -5,7 +5,9 @@
 use std::rc::Rc;
 
 use glam::{Mat3, Mat4, Quat, Vec3};
+use ragnarok_formats::gat::GatFile;
 use ragnarok_formats::gr2::model::{Gr2Curve, Gr2File, Gr2Skeleton, Gr2Transform};
+use ragnarok_formats::map_coordinates::MapCoordinates;
 
 use crate::entity::EntityState;
 
@@ -31,7 +33,7 @@ impl BindTransform {
 
 /// A GR2 skeleton prepared for posing: parent links, bind-pose transforms, and
 /// inverse bind-world matrices for skinning. Root bones are placed relative to
-/// the model's initial placement.
+/// `root_placement`.
 pub struct SkeletonPose {
     names: Vec<String>,
     parents: Vec<i32>,
@@ -46,18 +48,20 @@ impl SkeletonPose {
     pub fn from_model(file: &Gr2File, model_index: usize) -> Option<Self> {
         let model = file.models.get(model_index)?;
         let skeleton = file.skeletons.get(model.skeleton_index?)?;
-        Some(Self::new(
-            skeleton,
-            local_matrix(
-                Vec3::from(model.initial_placement.position),
-                Quat::from_xyzw(
-                    model.initial_placement.rotation[0],
-                    model.initial_placement.rotation[1],
-                    model.initial_placement.rotation[2],
-                    model.initial_placement.rotation[3],
-                ),
-                mat3_from_row_major(&model.initial_placement.scale_shear),
+        Some(Self::new(skeleton, Mat4::IDENTITY))
+    }
+
+    pub fn initial_placement(file: &Gr2File, model_index: usize) -> Option<Mat4> {
+        let model = file.models.get(model_index)?;
+        Some(local_matrix(
+            Vec3::from(model.initial_placement.position),
+            Quat::from_xyzw(
+                model.initial_placement.rotation[0],
+                model.initial_placement.rotation[1],
+                model.initial_placement.rotation[2],
+                model.initial_placement.rotation[3],
             ),
+            mat3_from_row_major(&model.initial_placement.scale_shear),
         ))
     }
 
@@ -259,6 +263,23 @@ pub fn model_facing_yaw(direction: u8) -> f32 {
     std::f32::consts::PI - direction as f32 * (std::f32::consts::TAU / 8.0)
 }
 
+/// World transform placing a model at the centre of `cell`, facing `direction`.
+/// The trailing X rotation stands the Z-up model upright (world up is negative
+/// Y). Drawing and picking must share this, or the hit box drifts off the model.
+pub fn model_world_transform(
+    cell: (f32, f32),
+    gat: Option<&GatFile>,
+    coords: &MapCoordinates,
+    direction: u8,
+) -> Mat4 {
+    let (cell_x, cell_y) = cell;
+    let (wx, _, wz) = coords.cell_to_world(cell_x + 0.5, cell_y + 0.5);
+    let wy = gat.map_or(0.0, |gat| gat.get_height(cell_x + 0.5, cell_y + 0.5));
+    Mat4::from_translation(Vec3::new(wx, wy, wz))
+        * Mat4::from_rotation_y(model_facing_yaw(direction))
+        * Mat4::from_rotation_x(std::f32::consts::FRAC_PI_2)
+}
+
 /// The skeleton and clips of one `.gr2`, shared by every entity drawn with it.
 pub struct Gr2Asset {
     pub pose: SkeletonPose,
@@ -271,6 +292,7 @@ pub struct Gr2ModelInstance {
     asset: Rc<Gr2Asset>,
     action: usize,
     action_start: f32,
+    palette: Vec<Mat4>,
 }
 
 impl Gr2ModelInstance {
@@ -279,6 +301,7 @@ impl Gr2ModelInstance {
             asset,
             action: Gr2Action::Stand.index(),
             action_start: 0.0,
+            palette: Vec::new(),
         }
     }
 
@@ -306,6 +329,19 @@ impl Gr2ModelInstance {
             Some(clip) => now - self.action_start >= clip.duration,
             None => true,
         }
+    }
+
+    /// Pose the model for this frame and keep the palette, so the pick box can
+    /// bound the geometry the draw covers rather than re-deriving the pose.
+    pub fn pose(&mut self, now: f32) -> &[Mat4] {
+        self.palette = self.skinning_palette(now);
+        &self.palette
+    }
+
+    /// The palette [`Gr2ModelInstance::pose`] last produced; empty until the
+    /// first frame.
+    pub fn palette(&self) -> &[Mat4] {
+        &self.palette
     }
 
     /// Skinning palette at wall-clock time `now`. `Dead` holds its last frame;

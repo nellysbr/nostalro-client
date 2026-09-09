@@ -24,24 +24,28 @@ fn load(grf: &GrfArchive, name: &str) -> Gr2File {
 }
 
 #[test]
-fn bind_pose_is_identity_palette() {
+fn bind_pose_palette_undoes_the_initial_placement() {
     let Some(grf) = open_any_grf() else {
         eprintln!("skip: no grf");
         return;
     };
-    // inverse_world[i] == inverse(bind_world[i]), so the bind skinning palette
-    // must be the identity for every bone — this validates local composition,
-    // world accumulation, and the matrix convention together.
+    // inverse_world[i] == inverse(initial_placement * bind_world[i]), so posing
+    // without the placement leaves every bone holding its inverse — validating
+    // local composition, world accumulation and the matrix convention together,
+    // and pinning down that the placement is already baked into the file.
+    // empelium's placement is the identity, kguardian's is not.
     for name in [
         "data/model/3dmob/empelium90_0.gr2",
         "data/model/3dmob/kguardian90_7.gr2",
     ] {
         let file = load(&grf, name);
         let skeleton = SkeletonPose::from_model(&file, 0).expect("skeleton");
+        let placement = SkeletonPose::initial_placement(&file, 0).expect("placement");
         for m in skeleton.bind_palette() {
             assert!(
-                m.abs_diff_eq(Mat4::IDENTITY, 1e-3),
-                "{name}: bind palette not identity: {m:?}",
+                (placement * m).abs_diff_eq(Mat4::IDENTITY, 1e-3),
+                "{name}: placed bind palette not identity: {:?}",
+                placement * m,
             );
         }
     }

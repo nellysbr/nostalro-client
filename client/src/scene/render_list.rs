@@ -1,6 +1,22 @@
 use crate::{App, input};
 use ragnarok_game::cursor::{RenderEntry, RenderEntryKind};
+use ragnarok_game::gr2_model;
 use ragnarok_renderer::Renderer;
+use ragnarok_renderer::sprite_projection::pick_bounds_from_drawn;
+
+/// Box for an entity whose sprite or model has not loaded yet.
+fn placeholder_bounds(screen_anchor: [f32; 2]) -> ([f32; 4], f32) {
+    let half = 50.0;
+    (
+        [
+            screen_anchor[0] - half,
+            screen_anchor[1] - 100.0,
+            screen_anchor[0] + half,
+            screen_anchor[1],
+        ],
+        100.0,
+    )
+}
 
 impl App {
     pub(crate) fn screen_dims(
@@ -88,6 +104,7 @@ impl App {
                                 screen_anchor,
                                 depth,
                                 sprite_scale,
+                                screen_w,
                             ),
                             sprite.compute_head_offset(
                                 &entity.animation,
@@ -98,18 +115,34 @@ impl App {
                                 sprite_scale,
                             ),
                         ),
-                        None => {
-                            let half = 50.0;
-                            (
-                                [
-                                    screen_anchor[0] - half,
-                                    screen_anchor[1] - 100.0,
-                                    screen_anchor[0] + half,
-                                    screen_anchor[1],
-                                ],
-                                100.0,
-                            )
-                        }
+                        // GR2 entities carry no sprite: bound the posed model
+                        // the same way the sprite path bounds its drawn quads.
+                        None => renderer
+                            .gr2_models
+                            .get(&entity.id)
+                            .zip(self.game.sprite_caches.gr2_models.get(&entity.id))
+                            .and_then(|(model, instance)| {
+                                model.asset().project_screen_bounds(
+                                    gr2_model::model_world_transform(
+                                        entity.movement.position(),
+                                        self.game.session.gat.as_ref(),
+                                        coords,
+                                        entity.direction,
+                                    ),
+                                    instance.palette(),
+                                    &renderer.camera,
+                                    screen_w,
+                                    screen_h,
+                                )
+                            })
+                            .map_or_else(
+                                || placeholder_bounds(screen_anchor),
+                                |drawn| {
+                                    let bounds =
+                                        pick_bounds_from_drawn(drawn, screen_anchor, screen_w);
+                                    (bounds, bounds[3] - bounds[1])
+                                },
+                            ),
                     },
                 );
             }

@@ -31,7 +31,7 @@ pub(crate) fn chat_room_board_rect(entry: &RenderEntry) -> [f32; 4] {
 
 const HP_BAR_WIDTH: f32 = 60.0;
 pub(crate) const HP_BAR_HEIGHT: f32 = 5.0;
-const SP_BAR_COLOR: [f32; 4] = [0.063, 0.094, 0.61, 1.0];
+const SP_BAR_COLOR: [f32; 4] = [0.094, 0.388, 0.871, 1.0];
 const CAST_BAR_COLOR: [f32; 4] = [0.0, 0.8, 0.0, 1.0];
 const GUILD_NAME_COLOR: [f32; 4] = [0.8, 1.0, 0.753, 1.0];
 const NPC_NAME_COLOR: [f32; 4] = [0.584, 0.722, 0.969, 1.0];
